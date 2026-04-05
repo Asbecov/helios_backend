@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     db_host: str = "localhost"
     db_port: int = 5432
     db_user: str = "helios_backend"
-    db_pass: str = "helios_backend"  # noqa: S105
+    db_pass: str
     db_base: str = "admin"
     db_echo: bool = False
 
@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     sentry_sample_rate: float = 1.0
 
     # JWT settings.
-    jwt_secret: str = "change-me-in-production-at-least-32-bytes"  # noqa: S105
+    jwt_secret: str
     jwt_algorithm: str = "HS256"
     jwt_access_token_exp_minutes: int = 60
 
@@ -75,6 +75,14 @@ class Settings(BaseSettings):
     # Base plan.
     base_plan_name: str = "Пробный план"
     base_plan_duration_days: int = 3
+
+    # Runtime/admin configuration.
+    admin_panel_enabled: bool = False
+    admin_panel_username: str | None = None
+    admin_panel_password: str | None = None
+
+    # Rate-limit network trust policy.
+    rate_limit_trust_forwarded_ip: bool = False
 
     @property
     def db_url(self) -> str | URL:
@@ -120,4 +128,4 @@ class Settings(BaseSettings):
     )
 
 
-settings = Settings()
+settings = Settings()  # type: ignore

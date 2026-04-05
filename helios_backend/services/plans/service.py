@@ -4,14 +4,22 @@ from uuid import UUID
 from helios_backend.db.dao.vpn.plan_dao import PlanDao
 from helios_backend.db.models.vpn.code import Code
 from helios_backend.db.models.vpn.subscription_plan import SubscriptionPlan
+from helios_backend.services.admin.runtime_settings import RuntimeSettingService
 
 
 class PlanService:
     """Plan listing with dynamic discount application."""
 
-    def __init__(self, plan_dao: PlanDao | None = None) -> None:
+    def __init__(
+        self,
+        plan_dao: PlanDao | None = None,
+        runtime_setting_service: RuntimeSettingService | None = None,
+    ) -> None:
         """Initialize plan service."""
         self._plan_dao = plan_dao or PlanDao()
+        self._runtime_setting_service = (
+            runtime_setting_service or RuntimeSettingService()
+        )
 
     async def get_plan_by_id(self, plan_id: UUID) -> SubscriptionPlan | None:
         """Returns a subscription plan by id, or None if it does not exist."""
@@ -19,7 +27,10 @@ class PlanService:
 
     async def get_base_plan(self) -> SubscriptionPlan:
         """Return base subscription plan, creating it when missing."""
-        return await self._plan_dao.get_or_create_base_plan()
+        return await self._plan_dao.get_or_create_base_plan(
+            name=await self._runtime_setting_service.base_plan_name(),
+            duration_days=await self._runtime_setting_service.base_plan_duration_days(),
+        )
 
     def calculate_with_discount(
         self,

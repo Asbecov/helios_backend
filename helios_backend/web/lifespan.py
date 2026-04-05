@@ -1,9 +1,11 @@
+import importlib
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
 from helios_backend.services.redis.lifespan import init_redis, shutdown_redis
+from helios_backend.settings import settings
 from helios_backend.tkq import broker
 
 
@@ -25,6 +27,11 @@ async def lifespan_setup(
     if not broker.is_worker_process:
         await broker.startup()
     init_redis(app)
+    if settings.admin_panel_enabled and settings.environment.lower() != "pytest":
+        admin_module = importlib.import_module("helios_backend.web.admin")
+        configure_admin_panel = admin_module.configure_admin_panel
+
+        await configure_admin_panel(app)
     app.middleware_stack = app.build_middleware_stack()
 
     yield

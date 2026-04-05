@@ -51,7 +51,12 @@ class CodeDao:
         """Handle delete referrals by owner."""
         await Code.filter(owner_id=owner_id, type=CodeType.REFERRAL).delete()
 
-    async def get_referral_usages_by_owner(self, owner_id: UUID) -> list[CodeUsage]:
+    async def get_referral_usages_by_owner(
+        self,
+        owner_id: UUID,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> list[CodeUsage]:
         """Handle get referral usages by owner."""
         return (
             await CodeUsage.filter(
@@ -60,6 +65,8 @@ class CodeDao:
             )
             .select_related("user", "code")
             .order_by("-created_at")
+            .offset(skip)
+            .limit(limit)
         )
 
     async def create_referral_code(

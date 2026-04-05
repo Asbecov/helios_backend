@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from helios_backend.services.codes.service import CodeService
 from helios_backend.services.users.service import UserService
@@ -48,10 +48,16 @@ async def get_my_referral_code(
 @router.get("/me/referral-usages", response_model=list[ReferralUsageResponse])
 async def get_my_referral_usages(
     user: CurrentUser,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
     code_service: CodeService = Depends(get_code_service),
 ) -> list[ReferralUsageResponse]:
     """Return usage events for referral codes owned by current user."""
-    usages = await code_service.get_referral_usages_by_user(user.id)
+    usages = await code_service.get_referral_usages_by_user(
+        owner_user_id=user.id,
+        skip=skip,
+        limit=limit,
+    )
     response: list[ReferralUsageResponse] = []
     for usage in usages:
         response.append(

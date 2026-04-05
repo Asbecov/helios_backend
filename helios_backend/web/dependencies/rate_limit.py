@@ -6,6 +6,27 @@ from redis.asyncio import Redis
 from helios_backend.settings import settings
 
 
+def _resolve_client_identity(request: Request) -> str:
+    """Resolve client identity for rate limiting keys."""
+    if settings.rate_limit_trust_forwarded_ip:
+        forwarded_for = request.headers.get("x-forwarded-for")
+        if forwarded_for:
+            first_hop = forwarded_for.split(",", maxsplit=1)[0].strip()
+            if first_hop:
+                return first_hop
+
+        real_ip = request.headers.get("x-real-ip")
+        if real_ip:
+            real_ip = real_ip.strip()
+            if real_ip:
+                return real_ip
+
+    if request.client:
+        return request.client.host
+
+    return "unknown"
+
+
 def rate_limit(
     limit: int,
     window_seconds: int,
@@ -17,7 +38,7 @@ def rate_limit(
         if settings.environment.lower() == "pytest":
             return
         redis: Redis = request.app.state.redis
-        key_part = request.client.host if request.client else "unknown"
+        key_part = _resolve_client_identity(request)
 
         redis_key = f"rl:{prefix}:{key_part}"
         count = await redis.incr(redis_key)

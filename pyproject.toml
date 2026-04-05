@@ -8,12 +8,13 @@ maintainers = []
 readme = "README.md"
 dependencies = [
   "fastapi >=0.122.0,<1",
+  "fastapi-admin >=1.0.4,<2",
   "uvicorn[standard] >=0.38.0,<1",
   "gunicorn >=23.0.0,<24",
   "pydantic >=2.12.5,<3",
   "pydantic-settings >=2.12.0,<3",
   "yarl >=1.22.0,<2",
-  "ujson >=5.11.0,<6",
+  "orjson >=3.10.0,<4",
   "tortoise-orm >=0.25.1,<1",
   "aerich >=0.9.2,<1",
   "asyncpg >=0.31.0,<1",
@@ -97,6 +98,8 @@ env = [
     "HELIOS_BACKEND_ENVIRONMENT=pytest",
     "HELIOS_BACKEND_DB_BASE=helios_backend_test",
     "HELIOS_BACKEND_SENTRY_DSN=",
+    "HELIOS_BACKEND_DB_PASS=helios_backend",
+    "HELIOS_BACKEND_JWT_SECRET=super_secret_test_key_1234567890",
 ]
 [tool.aerich]
 tortoise_orm = "helios_backend.db.config.TORTOISE_CONFIG"

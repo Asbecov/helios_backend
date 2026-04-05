@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 
+from helios_backend.services.admin.runtime_settings import RuntimeSettingService
 from helios_backend.services.payments.service import PaymentService
 from helios_backend.web.api.payments.schema import (
     PaymentCreateRequest,
@@ -9,7 +10,10 @@ from helios_backend.web.api.payments.schema import (
 )
 from helios_backend.web.dependencies.rate_limit import rate_limit
 from helios_backend.web.dependencies.security import CurrentUser
-from helios_backend.web.dependencies.services import get_payment_service
+from helios_backend.web.dependencies.services import (
+    get_payment_service,
+    get_runtime_setting_service,
+)
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -23,8 +27,17 @@ async def create_payment(
     payload: PaymentCreateRequest,
     user: CurrentUser,
     service: PaymentService = Depends(get_payment_service),
+    runtime_setting_service: RuntimeSettingService = Depends(
+        get_runtime_setting_service,
+    ),
 ) -> PaymentCreateResponse:
     """Create a payment via configured provider."""
+    if not await runtime_setting_service.payments_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="payments are disabled",
+        )
+
     try:
         payment, provider_payload = await service.create_payment(
             user=user,
@@ -35,7 +48,7 @@ async def create_payment(
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
+            detail="payment request rejected",
         ) from exc
 
     return PaymentCreateResponse(
@@ -67,7 +80,7 @@ async def payment_webhook(
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
+            detail="webhook request rejected",
         ) from exc
 
     return WebhookResponse(payment_id=payment.id, status=payment.status)

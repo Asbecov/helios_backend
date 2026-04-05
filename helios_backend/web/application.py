@@ -1,8 +1,8 @@
+import importlib
 import logging
 
 import sentry_sdk
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
 from tortoise.contrib.fastapi import register_tortoise
@@ -45,11 +45,15 @@ def get_app() -> FastAPI:
         docs_url="/api/docs",
         redoc_url="/api/redoc",
         openapi_url="/api/openapi.json",
-        default_response_class=JSONResponse,
     )
 
     # Main router for the API.
     app.include_router(router=api_router, prefix="/api")
+    if settings.admin_panel_enabled and settings.environment.lower() != "pytest":
+        admin_module = importlib.import_module("helios_backend.web.admin")
+        mount_admin_panel = admin_module.mount_admin_panel
+
+        mount_admin_panel(app)
     # Configures tortoise orm.
     register_tortoise(
         app,

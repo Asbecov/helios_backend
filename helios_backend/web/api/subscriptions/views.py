@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from helios_backend.services.balance.service import BalanceService
 from helios_backend.services.marzban.service import MarzbanService, MarzbanServiceError
@@ -80,6 +80,16 @@ async def freeze_subscription(
     return _build_status_response(status_payload)
 
 
+@router.post("/activate", response_model=SubscriptionStatusResponse)
+async def activate_subscription(
+    user: CurrentUser,
+    balance_service: BalanceService = Depends(get_balance_service),
+) -> SubscriptionStatusResponse:
+    """Activate frozen balance and return updated status."""
+    status_payload = await balance_service.activate(user)
+    return _build_status_response(status_payload)
+
+
 @router.get("/url", response_model=SubscriptionUrlResponse)
 async def get_subscription_url(
     user: CurrentUser,
@@ -87,10 +97,13 @@ async def get_subscription_url(
     marzban_service: MarzbanService = Depends(get_marzban_service),
     user_service: UserService = Depends(get_user_service),
 ) -> SubscriptionUrlResponse:
-    """Activate balance and lazily provision Marzban user on first URL request."""
-    status_payload = await balance_service.activate(user)
-    if status_payload is None:
-        return SubscriptionUrlResponse(subscription_url=None)
+    """Return subscription URL only when local balance is already active."""
+    status_payload = await balance_service.get_status(user)
+    if status_payload is None or status_payload.get("is_frozen") is not False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="subscription is not active",
+        )
 
     active_expires_at = status_payload.get("active_expires_at")
     if not isinstance(active_expires_at, str):

@@ -2,7 +2,7 @@
 
 Production-ready FastAPI backend for Telegram Mini App VPN subscription management.
 
-No internal admin panel is included. The schema and API are designed for external admin tools (Retool, Appsmith, ToolJet, Supabase Studio) via direct PostgreSQL CRUD or REST integrations.
+Includes an internal FastAPI-Admin dashboard at `/admin` (optional).
 
 ## Stack
 
@@ -40,6 +40,7 @@ Base path: `/api`
 - GET `/plans/base`
 - GET `/subscription`
 - GET `/subscription/status`
+- POST `/subscription/activate`
 - POST `/subscription/freeze`
 - GET `/subscription/url`
 - POST `/payments/create`
@@ -51,6 +52,15 @@ Base path: `/api`
 - GET `/health`
 
 All user-facing endpoints require JWT except `/auth/telegram` and `/health`.
+
+Payment creation uses `plan_id` from `/plans`.
+
+`GET /subscription/url` requires an already active subscription balance.
+Activate balance first with `POST /subscription/activate`.
+
+Admin panel bootstrap:
+- Set `HELIOS_BACKEND_ADMIN_PANEL_ENABLED=true` to enable `/admin` in admin deployments.
+- Set `HELIOS_BACKEND_ADMIN_PANEL_USERNAME` and `HELIOS_BACKEND_ADMIN_PANEL_PASSWORD` to auto-create first panel account.
 
 ## Local Run
 

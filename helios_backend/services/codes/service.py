@@ -33,9 +33,18 @@ class CodeService:
         """Handle delete user referral codes."""
         await self._code_dao.delete_referrals_by_owner(user_id)
 
-    async def get_referral_usages_by_user(self, owner_user_id: UUID) -> list[CodeUsage]:
+    async def get_referral_usages_by_user(
+        self,
+        owner_user_id: UUID,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> list[CodeUsage]:
         """Handle get referral usages by user."""
-        return await self._code_dao.get_referral_usages_by_owner(owner_user_id)
+        return await self._code_dao.get_referral_usages_by_owner(
+            owner_id=owner_user_id,
+            skip=skip,
+            limit=limit,
+        )
 
     async def get_or_create_user_referral_code(
         self,

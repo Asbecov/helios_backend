@@ -56,6 +56,9 @@ class PaymentService:
         if plan is None:
             msg = "plan not found"
             raise ValueError(msg)
+        if plan.is_base:
+            msg = "base plan cannot be purchased"
+            raise ValueError(msg)
 
         code = await self._code_service.resolve_valid_code(
             code=code_raw, user_id=user.id

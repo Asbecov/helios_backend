@@ -2,6 +2,7 @@ import secrets
 import string
 from uuid import UUID
 
+from helios_backend.db.dao.vpn.base_plan_grant_dao import BasePlanGrantDao
 from helios_backend.db.dao.vpn.user_dao import UserDao
 from helios_backend.db.models.vpn.subscription_plan import SubscriptionPlan
 from helios_backend.db.models.vpn.user import User
@@ -17,6 +18,7 @@ class UserService:
     def __init__(
         self,
         user_dao: UserDao | None = None,
+        base_plan_grant_dao: BasePlanGrantDao | None = None,
         balance_service: BalanceService | None = None,
         plan_service: PlanService | None = None,
         code_service: CodeService | None = None,
@@ -24,6 +26,7 @@ class UserService:
     ) -> None:
         """Initialize user service."""
         self._user_dao = user_dao or UserDao()
+        self._base_plan_grant_dao = base_plan_grant_dao or BasePlanGrantDao()
         self._balance_service = balance_service or BalanceService()
         self._plan_service = plan_service or PlanService()
         self._code_service = code_service or CodeService()
@@ -63,8 +66,15 @@ class UserService:
             telegram_id=telegram_id,
             username=username,
         )
-        base_plan: SubscriptionPlan = await self._plan_service.get_base_plan()
-        await self._balance_service.apply_plan(created, base_plan)
+
+        is_first_grant = await self._base_plan_grant_dao.record_if_absent(
+            telegram_id=telegram_id,
+            user_id=created.id,
+        )
+        if is_first_grant:
+            base_plan: SubscriptionPlan = await self._plan_service.get_base_plan()
+            await self._balance_service.apply_plan(created, base_plan)
+
         await self._code_service.get_or_create_user_referral_code(created)
 
         return created
