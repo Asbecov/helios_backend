@@ -1,0 +1,82 @@
+services:
+  api: &main_app
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: helios_backend:${HELIOS_BACKEND_VERSION:-latest}
+    restart: always
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+    environment:
+      HELIOS_BACKEND_HOST: 0.0.0.0
+      HELIOS_BACKEND_DB_HOST: helios_backend-db
+      HELIOS_BACKEND_DB_PORT: 5432
+      HELIOS_BACKEND_DB_USER: helios_backend
+      HELIOS_BACKEND_DB_PASS: helios_backend
+      HELIOS_BACKEND_DB_BASE: helios_backend
+      HELIOS_BACKEND_REDIS_HOST: helios_backend-redis
+      HELIOS_BACKEND_JWT_SECRET: super-secret-change-me-at-least-32-bytes
+
+  taskiq-worker:
+    <<: *main_app
+    labels: []
+    command:
+      - taskiq
+      - worker
+      - helios_backend.tkq:broker
+
+  taskiq-scheduler:
+    <<: *main_app
+    labels: []
+    command:
+      - taskiq
+      - scheduler
+      - helios_backend.tkq:broker
+
+  db:
+    image: postgres:18.1-bookworm
+    hostname: helios_backend-db
+    environment:
+      POSTGRES_PASSWORD: "helios_backend"
+      POSTGRES_USER: "helios_backend"
+      POSTGRES_DB: "helios_backend"
+    volumes:
+      - helios_backend-db-data:/var/lib/postgresql
+    restart: always
+    healthcheck:
+      test: pg_isready -U helios_backend
+      interval: 2s
+      timeout: 3s
+      retries: 40
+
+  migrator:
+    <<: *main_app
+    restart: "no"
+    command: aerich upgrade
+    depends_on:
+      db:
+        condition: service_healthy
+
+  redis:
+    image: redis:8.4.0
+    hostname: "helios_backend-redis"
+    restart: always
+    environment:
+      ALLOW_EMPTY_PASSWORD: "yes"
+    healthcheck:
+      test: redis-cli ping
+      interval: 1s
+      timeout: 3s
+      retries: 50
+
+volumes:
+  helios_backend-db-data:
+    name: helios_backend-db-data

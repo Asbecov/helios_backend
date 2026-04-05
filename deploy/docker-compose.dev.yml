@@ -1,0 +1,32 @@
+services:
+  api:
+    ports:
+      # Exposes application port.
+      - "8000:8000"
+    build:
+      context: .
+    volumes:
+      # Adds current directory as volume.
+      - .:/app/src/
+    environment:
+      # Enables autoreload.
+      HELIOS_BACKEND_RELOAD: "True"
+
+  taskiq-worker:
+    volumes:
+      # Adds current directory as volume.
+      - .:/app/src/
+    command:
+      - taskiq
+      - worker
+      - helios_backend.tkq:broker
+      - --reload
+
+  taskiq-scheduler:
+    volumes:
+      - .:/app/src/
+    command:
+      - taskiq
+      - scheduler
+      - helios_backend.tkq:broker
+      - --reload
