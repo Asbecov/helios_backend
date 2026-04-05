@@ -1,7 +1,7 @@
 import uuid
 
 from tortoise import fields, models
-from tortoise.fields.relational import ForeignKeyNullableRelation
+from tortoise.fields.relational import ForeignKeyRelation
 
 from helios_backend.db.models.vpn.code import Code
 from helios_backend.db.models.vpn.user import User
@@ -11,11 +11,11 @@ class CodeUsage(models.Model):
     """Tracks per-user code usage to enforce one-time usage per code per user."""
 
     id = fields.UUIDField(pk=True, default=uuid.uuid4)
-    user: ForeignKeyNullableRelation[User] = fields.ForeignKeyField(
+    user: ForeignKeyRelation[User] = fields.ForeignKeyField(
         "models.User",
         related_name="code_usages",
     )
-    code: ForeignKeyNullableRelation[Code] = fields.ForeignKeyField(
+    code: ForeignKeyRelation[Code] = fields.ForeignKeyField(
         "models.Code",
         related_name="usages",
     )

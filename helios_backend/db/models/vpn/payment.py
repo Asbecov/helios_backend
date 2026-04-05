@@ -2,7 +2,7 @@ import enum
 import uuid
 
 from tortoise import fields, models
-from tortoise.fields.relational import ForeignKeyNullableRelation
+from tortoise.fields.relational import ForeignKeyNullableRelation, ForeignKeyRelation
 
 from helios_backend.db.models.vpn.code import Code
 from helios_backend.db.models.vpn.subscription_plan import SubscriptionPlan
@@ -21,11 +21,11 @@ class Payment(models.Model):
     """Payment entity for subscription purchase attempts."""
 
     id = fields.UUIDField(pk=True, default=uuid.uuid4)
-    user: ForeignKeyNullableRelation[User] = fields.ForeignKeyField(
+    user: ForeignKeyRelation[User] = fields.ForeignKeyField(
         "models.User",
         related_name="payments",
     )
-    plan: ForeignKeyNullableRelation[SubscriptionPlan] = fields.ForeignKeyField(
+    plan: ForeignKeyRelation[SubscriptionPlan] = fields.ForeignKeyField(
         "models.SubscriptionPlan",
         related_name="payments",
     )

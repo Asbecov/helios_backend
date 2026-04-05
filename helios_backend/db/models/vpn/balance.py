@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from tortoise import fields, models
-from tortoise.fields.relational import ForeignKeyNullableRelation
+from tortoise.fields.relational import ForeignKeyRelation
 
 from helios_backend.db.models.vpn.user import User
 
@@ -13,7 +13,7 @@ class Balance(models.Model):
     """User remaining days balance for VPN access."""
 
     id = fields.UUIDField(pk=True, default=uuid.uuid4)
-    user: ForeignKeyNullableRelation[User] = fields.ForeignKeyField(
+    user: ForeignKeyRelation[User] = fields.ForeignKeyField(
         "models.User",
         related_name="balances",
         unique=True,
