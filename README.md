@@ -37,12 +37,17 @@ Base path: `/api`
 
 - POST `/auth/telegram`
 - GET `/plans`
+- GET `/plans/base`
 - GET `/subscription`
 - GET `/subscription/status`
+- POST `/subscription/freeze`
+- GET `/subscription/url`
 - POST `/payments/create`
 - POST `/payments/webhook/{provider}`
 - GET `/me`
 - DELETE `/me`
+- GET `/me/referral-code`
+- GET `/me/referral-usages`
 - GET `/health`
 
 All user-facing endpoints require JWT except `/auth/telegram` and `/health`.
