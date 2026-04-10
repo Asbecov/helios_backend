@@ -8,6 +8,7 @@ maintainers = []
 readme = "README.md"
 dependencies = [
   "fastapi >=0.122.0,<1",
+  "aiogram >=3.22.0,<4",
   "fastapi-admin >=1.0.4,<2",
   "uvicorn[standard] >=0.38.0,<1",
   "gunicorn >=23.0.0,<24",
@@ -173,6 +174,15 @@ line-length = 88
 ]
 "helios_backend/web/api/auth/schema.py" = [
   "S105",    # False positive on token type literal
+]
+"helios_backend/bot/*.py" = [
+  "RUF001",  # Allow Cyrillic user-facing text in Telegram bot messages
+]
+"helios_backend/bot/handlers.py" = [
+  "PLR0911", # Callback handlers intentionally use early returns for explicit branches
+]
+"helios_backend/bot/common/buy.py" = [
+  "PLR0911", # Payment flow helper uses explicit guard returns for user-facing branches
 ]
 
 [tool.ruff.lint.pydocstyle]

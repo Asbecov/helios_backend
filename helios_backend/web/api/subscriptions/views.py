@@ -3,7 +3,11 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from helios_backend.services.balance.service import BalanceService
-from helios_backend.services.marzban.service import MarzbanService, MarzbanServiceError
+from helios_backend.services.marzban.service import (
+    MarzbanService,
+    MarzbanServiceError,
+    MarzbanUserAlreadyExistsError,
+)
 from helios_backend.services.users.service import UserService
 from helios_backend.web.api.subscriptions.schema import (
     SubscriptionStatusResponse,
@@ -111,17 +115,25 @@ async def get_subscription_url(
 
     marzban_username = await user_service.get_or_create_marzban_username(user)
     expires_at = datetime.fromisoformat(active_expires_at)
-    try:
-        await marzban_service.create_user(
-            username=marzban_username,
-            expires_at=expires_at,
-        )
-    except MarzbanServiceError:
-        # If user already exists remotely, extend expiry to match local state.
-        await marzban_service.extend_user(
-            username=marzban_username,
-            expires_at=expires_at,
-        )
 
-    subscription_url = await marzban_service.get_subscription_url(marzban_username)
+    try:
+        try:
+            await marzban_service.create_user(
+                username=marzban_username,
+                expires_at=expires_at,
+            )
+        except MarzbanUserAlreadyExistsError:
+            # If user already exists remotely, extend expiry to match local state.
+            await marzban_service.extend_user(
+                username=marzban_username,
+                expires_at=expires_at,
+            )
+
+        subscription_url = await marzban_service.get_subscription_url(marzban_username)
+    except MarzbanServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="failed to sync subscription with marzban",
+        ) from exc
+
     return SubscriptionUrlResponse(subscription_url=subscription_url)

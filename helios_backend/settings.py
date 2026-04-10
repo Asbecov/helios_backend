@@ -65,6 +65,18 @@ class Settings(BaseSettings):
     # Telegram auth settings.
     telegram_bot_token: str = ""
     telegram_auth_max_age_seconds: int = 300
+    telegram_terms_url: str = ""
+    telegram_privacy_url: str = ""
+    telegram_default_payment_provider: str = "dummy"
+    telegram_support_contacts: str = ""
+    telegram_support_url: str = ""
+    telegram_help_image_url: str = ""
+    telegram_my_image_url: str = ""
+    telegram_buy_image_url: str = ""
+    telegram_connect_image_url: str = ""
+    telegram_support_image_url: str = ""
+    telegram_terms_image_url: str = ""
+    telegram_privacy_image_url: str = ""
 
     # Marzban integration.
     marzban_base_url: str | None = None

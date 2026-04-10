@@ -8,26 +8,30 @@ class MarzbanServiceError(RuntimeError):
     """Raised when Marzban operations fail."""
 
 
+class MarzbanUserAlreadyExistsError(MarzbanServiceError):
+    """Raised when Marzban create_user fails because user already exists."""
+
+
 class MarzbanClientProtocol(Protocol):
     """Represent marzban client protocol."""
 
-    async def get_token(self) -> str:
+    async def get_token(self) -> Any:
         """Handle get token."""
         ...
 
-    async def add_user(self, *, user: Any, token: str) -> None:
+    async def add_user(self, *, user: Any, token: Any) -> None:
         """Handle add user."""
         ...
 
-    async def get_user(self, username: str, *, token: str) -> Any:
+    async def get_user(self, username: str, *, token: Any) -> Any:
         """Handle get user."""
         ...
 
-    async def modify_user(self, username: str, *, token: str, user: Any) -> None:
+    async def modify_user(self, username: str, *, token: Any, user: Any) -> None:
         """Handle modify user."""
         ...
 
-    async def delete_user(self, username: str, *, token: str) -> None:
+    async def delete_user(self, username: str, *, token: Any) -> None:
         """Handle delete user."""
         ...
 
@@ -35,7 +39,17 @@ class MarzbanClientProtocol(Protocol):
 class MarzbanService:
     """Client for Marzban API operations backed by marzpy."""
 
-    async def _get_client_and_token(self) -> tuple[MarzbanClientProtocol, str] | None:
+    @staticmethod
+    def _is_user_exists_error(exc: Exception) -> bool:
+        """Return True when create_user failed because user already exists."""
+        status_code = getattr(exc, "status", None)
+        if isinstance(status_code, int) and status_code == 409:
+            return True
+
+        message = str(exc).lower()
+        return "exist" in message and "user" in message
+
+    async def _get_client_and_token(self) -> tuple[MarzbanClientProtocol, Any] | None:
         """Handle get client and token."""
         if not settings.marzban_base_url:
             return None
@@ -86,6 +100,9 @@ class MarzbanService:
         try:
             await client.add_user(user=marzban_user, token=token)
         except Exception as exc:
+            if self._is_user_exists_error(exc):
+                msg = f"marzban user {username} already exists"
+                raise MarzbanUserAlreadyExistsError(msg) from exc
             msg = f"failed to create Marzban user {username}"
             raise MarzbanServiceError(msg) from exc
 

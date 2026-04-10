@@ -4,6 +4,8 @@ Production-ready FastAPI backend for Telegram Mini App VPN subscription manageme
 
 Includes an internal FastAPI-Admin dashboard at `/admin` (optional).
 
+Also includes a Telegram bot (aiogram 3) for account and subscription actions.
+
 ## Stack
 
 - Python 3.12
@@ -30,6 +32,14 @@ Modules:
 - codes
 - marzban
 - notifications
+
+Telegram bot commands:
+- `/my`
+- `/buy`
+- `/connect`
+- `/support`
+- `/terms`
+- `/privacy`
 
 ## API
 
@@ -71,7 +81,23 @@ aerich upgrade
 uv run -m helios_backend
 uv run taskiq worker helios_backend.tkq:broker
 uv run taskiq scheduler helios_backend.tkq:broker
+uv run -m helios_backend.bot
 ```
+
+Bot-related env vars:
+- `HELIOS_BACKEND_TELEGRAM_BOT_TOKEN`
+- `HELIOS_BACKEND_TELEGRAM_TERMS_URL`
+- `HELIOS_BACKEND_TELEGRAM_PRIVACY_URL`
+- `HELIOS_BACKEND_TELEGRAM_DEFAULT_PAYMENT_PROVIDER`
+- `HELIOS_BACKEND_TELEGRAM_SUPPORT_CONTACTS`
+- `HELIOS_BACKEND_TELEGRAM_SUPPORT_URL`
+- `HELIOS_BACKEND_TELEGRAM_HELP_IMAGE_URL`
+- `HELIOS_BACKEND_TELEGRAM_MY_IMAGE_URL`
+- `HELIOS_BACKEND_TELEGRAM_BUY_IMAGE_URL`
+- `HELIOS_BACKEND_TELEGRAM_CONNECT_IMAGE_URL`
+- `HELIOS_BACKEND_TELEGRAM_SUPPORT_IMAGE_URL`
+- `HELIOS_BACKEND_TELEGRAM_TERMS_IMAGE_URL`
+- `HELIOS_BACKEND_TELEGRAM_PRIVACY_IMAGE_URL`
 
 ## Docker
 

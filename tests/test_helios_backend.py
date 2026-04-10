@@ -16,6 +16,7 @@ from helios_backend.db.models.vpn.user import User
 from helios_backend.services.admin.runtime_settings import RuntimeSettingService
 from helios_backend.services.auth.jwt import JwtService
 from helios_backend.services.codes.service import CodeService
+from helios_backend.services.marzban.service import MarzbanService, MarzbanServiceError
 from helios_backend.services.users.service import UserService
 
 
@@ -305,6 +306,48 @@ async def test_subscription_url_creates_marzban_user_and_sets_username(
     }
     assert len(calls) == 1
     assert calls[0][0] == updated_user.marzban_username
+
+
+async def test_subscription_url_returns_502_on_marzban_sync_failure(
+    client: AsyncClient,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Return 502 when Marzban sync fails for reasons other than existing user."""
+    user = await User.create(
+        telegram_id=3388,
+        username="u3388",
+    )
+    await Balance.create(user=user, remaining_frozen_days=2, is_frozen=True)
+
+    async def fake_create_user(
+        self: object,
+        username: str,
+        expires_at: datetime,
+    ) -> None:
+        _ = self
+        _ = username
+        _ = expires_at
+        raise MarzbanServiceError("network unavailable")
+
+    monkeypatch.setattr(MarzbanService, "create_user", fake_create_user)
+
+    activate_response = await client.post(
+        "/api/subscription/activate",
+        headers={
+            "Authorization": f"Bearer {JwtService().create_access_token(user.id)}"
+        },
+    )
+    assert activate_response.status_code == status.HTTP_200_OK
+
+    response = await client.get(
+        "/api/subscription/url",
+        headers={
+            "Authorization": f"Bearer {JwtService().create_access_token(user.id)}"
+        },
+    )
+
+    assert response.status_code == status.HTTP_502_BAD_GATEWAY
+    assert response.json()["detail"] == "failed to sync subscription with marzban"
 
 
 async def test_code_can_be_used_only_once_per_user_in_payment_creation(

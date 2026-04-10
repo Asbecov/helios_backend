@@ -30,3 +30,11 @@ services:
       - scheduler
       - helios_backend.tkq:broker
       - --reload
+
+  telegram-bot:
+    volumes:
+      - .:/app/src/
+    command:
+      - python
+      - -m
+      - helios_backend.bot

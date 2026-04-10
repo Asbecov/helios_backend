@@ -1,8 +1,9 @@
 from datetime import UTC, datetime, timedelta
 
-import httpx
+from aiogram.exceptions import TelegramAPIError
 
 from helios_backend.db.dao.vpn.balance_dao import BalanceDao
+from helios_backend.services.notifications.bot_client import get_shared_bot
 from helios_backend.settings import settings
 
 
@@ -17,17 +18,14 @@ class TelegramNotifierService:
         """Handle notify user."""
         if not settings.telegram_bot_token:
             return
-        endpoint = (
-            f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
-        )
-        payload = {"chat_id": telegram_id, "text": text}
-        async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.post(endpoint, json=payload)
-            try:
-                response.raise_for_status()
-            except httpx.HTTPStatusError as exc:
-                msg = f"telegram notification failed for chat_id={telegram_id}"
-                raise RuntimeError(msg) from exc
+        bot = await get_shared_bot()
+        if bot is None:
+            return
+        try:
+            await bot.send_message(chat_id=telegram_id, text=text)
+        except TelegramAPIError as exc:
+            msg = f"telegram notification failed for chat_id={telegram_id}"
+            raise RuntimeError(msg) from exc
 
     async def notify_expiring_subscriptions(self) -> dict[str, int]:
         """Handle notify expiring subscriptions."""
@@ -71,4 +69,23 @@ class TelegramNotifierService:
             "expiring_3d": len(expiring_3d),
             "expiring_1d": len(expiring_1d),
             "expired": len(expired),
+        }
+
+    async def notify_unactivated_balances(self) -> dict[str, int]:
+        """Handle daily reminders for frozen balances with remaining days."""
+        frozen_balances = await self._balance_dao.get_frozen_with_remaining_days()
+
+        for balance in frozen_balances:
+            if balance.user is None:
+                continue
+            await self.notify_user(
+                balance.user.telegram_id,
+                (
+                    "You have a subscription with frozen days available. "
+                    "Open the app and activate your subscription to start using it."
+                ),
+            )
+
+        return {
+            "frozen_with_remaining_days": len(frozen_balances),
         }

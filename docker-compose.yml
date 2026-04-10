@@ -41,6 +41,14 @@ services:
       - scheduler
       - helios_backend.tkq:broker
 
+  telegram-bot:
+    <<: *main_app
+    labels: []
+    command:
+      - python
+      - -m
+      - helios_backend.bot
+
   db:
     image: postgres:18.1-bookworm
     hostname: helios_backend-db

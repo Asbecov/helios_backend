@@ -106,6 +106,13 @@ class BalanceDao:
             expires_at__lt=threshold,
         ).select_related("user")
 
+    async def get_frozen_with_remaining_days(self) -> list[Balance]:
+        """Handle get frozen balances with available days."""
+        return await Balance.filter(
+            is_frozen=True,
+            remaining_frozen_days__gt=0,
+        ).select_related("user")
+
     async def delete_by_user(self, user: User) -> None:
         """Handle delete by user."""
         await Balance.filter(user=user).delete()

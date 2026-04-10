@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from helios_backend.services.notifications.bot_client import close_shared_bot
 from helios_backend.services.redis.lifespan import init_redis, shutdown_redis
 from helios_backend.settings import settings
 from helios_backend.tkq import broker
@@ -37,4 +38,5 @@ async def lifespan_setup(
     yield
     if not broker.is_worker_process:
         await broker.shutdown()
+    await close_shared_bot()
     await shutdown_redis(app)
