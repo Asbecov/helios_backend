@@ -7,7 +7,7 @@ services:
     restart: always
     env_file:
       - path: .env
-        required: false
+        required: true
     depends_on:
       db:
         condition: service_healthy
@@ -15,15 +15,6 @@ services:
         condition: service_healthy
       migrator:
         condition: service_completed_successfully
-    environment:
-      HELIOS_BACKEND_HOST: 0.0.0.0
-      HELIOS_BACKEND_DB_HOST: helios_backend-db
-      HELIOS_BACKEND_DB_PORT: 5432
-      HELIOS_BACKEND_DB_USER: helios_backend
-      HELIOS_BACKEND_DB_PASS: helios_backend
-      HELIOS_BACKEND_DB_BASE: helios_backend
-      HELIOS_BACKEND_REDIS_HOST: helios_backend-redis
-      HELIOS_BACKEND_JWT_SECRET: super-secret-change-me-at-least-32-bytes
 
   taskiq-worker:
     <<: *main_app
@@ -39,7 +30,7 @@ services:
     command:
       - taskiq
       - scheduler
-      - helios_backend.tkq:broker
+      - helios_backend.tkq:scheduler
 
   telegram-bot:
     <<: *main_app
@@ -52,15 +43,20 @@ services:
   db:
     image: postgres:18.1-bookworm
     hostname: helios_backend-db
+    env_file:
+      - path: .env
+        required: true
     environment:
-      POSTGRES_PASSWORD: "helios_backend"
-      POSTGRES_USER: "helios_backend"
-      POSTGRES_DB: "helios_backend"
+      POSTGRES_USER: ${HELIOS_BACKEND_DB_USER:-helios_backend}
+      POSTGRES_PASSWORD: ${HELIOS_BACKEND_DB_PASS:-helios_backend}
+      POSTGRES_DB: ${HELIOS_BACKEND_DB_BASE:-helios_backend}
     volumes:
       - helios_backend-db-data:/var/lib/postgresql
     restart: always
+    ports:
+      - "${HELIOS_BACKEND_DB_EXTERNAL_PORT:-5432}:5432"
     healthcheck:
-      test: pg_isready -U helios_backend
+      test: pg_isready -U ${HELIOS_BACKEND_DB_USER:-helios_backend}
       interval: 2s
       timeout: 3s
       retries: 40
@@ -77,8 +73,6 @@ services:
     image: redis:8.4.0
     hostname: "helios_backend-redis"
     restart: always
-    environment:
-      ALLOW_EMPTY_PASSWORD: "yes"
     healthcheck:
       test: redis-cli ping
       interval: 1s

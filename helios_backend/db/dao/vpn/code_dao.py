@@ -37,6 +37,13 @@ class CodeDao:
         if not active:
             return None
 
+        if (
+            code.type is CodeType.REFERRAL
+            and code.owner is not None
+            and code.owner.id == user_id
+        ):
+            return None
+
         already_used: bool = await self._check_code_usage(code, user_id)
         if already_used:
             return None

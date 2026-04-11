@@ -413,6 +413,50 @@ async def test_code_can_be_used_only_once_per_user_in_payment_creation(
     assert third.status_code == status.HTTP_200_OK
 
 
+async def test_user_cannot_apply_own_referral_code(
+    client: AsyncClient,
+) -> None:
+    """Reject owner's own referral code while allowing another user to use it."""
+    owner = await User.create(telegram_id=5566, username="owner_ref")
+    buyer = await User.create(telegram_id=5577, username="buyer_ref")
+    plan = await SubscriptionPlan.create(
+        name="ReferralPlan",
+        duration_days=30,
+        price=Decimal("15.00"),
+        tags={},
+    )
+
+    code_service = CodeService()
+    referral_code = await code_service.get_or_create_user_referral_code(owner)
+
+    owner_response = await client.post(
+        "/api/payments/create",
+        json={
+            "plan_id": str(plan.id),
+            "provider": "dummy",
+            "code": referral_code.code,
+        },
+        headers={
+            "Authorization": f"Bearer {JwtService().create_access_token(owner.id)}"
+        },
+    )
+    assert owner_response.status_code == status.HTTP_400_BAD_REQUEST
+    assert owner_response.json()["detail"] == "payment request rejected"
+
+    buyer_response = await client.post(
+        "/api/payments/create",
+        json={
+            "plan_id": str(plan.id),
+            "provider": "dummy",
+            "code": referral_code.code,
+        },
+        headers={
+            "Authorization": f"Bearer {JwtService().create_access_token(buyer.id)}"
+        },
+    )
+    assert buyer_response.status_code == status.HTTP_200_OK
+
+
 async def test_zero_amount_payment_is_auto_paid_without_provider_call(
     client: AsyncClient,
     monkeypatch: MonkeyPatch,

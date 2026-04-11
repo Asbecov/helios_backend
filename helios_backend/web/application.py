@@ -49,7 +49,7 @@ def get_app() -> FastAPI:
 
     # Main router for the API.
     app.include_router(router=api_router, prefix="/api")
-    if settings.admin_panel_enabled and settings.environment.lower() != "pytest":
+    if settings.environment.lower() != "pytest":
         admin_module = importlib.import_module("helios_backend.web.admin")
         mount_admin_panel = admin_module.mount_admin_panel
 

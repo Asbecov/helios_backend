@@ -89,9 +89,10 @@ class Settings(BaseSettings):
     base_plan_duration_days: int = 3
 
     # Runtime/admin configuration.
-    admin_panel_enabled: bool = False
     admin_panel_username: str | None = None
     admin_panel_password: str | None = None
+    admin_site_name: str = "Helios Admin"
+    admin_secret_key: str | None = None
 
     # Rate-limit network trust policy.
     rate_limit_trust_forwarded_ip: bool = False
@@ -137,6 +138,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_prefix="HELIOS_BACKEND_",
         env_file_encoding="utf-8",
+        extra="ignore",
     )
 
 

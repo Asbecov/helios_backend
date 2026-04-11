@@ -2,7 +2,7 @@
 
 Production-ready FastAPI backend for Telegram Mini App VPN subscription management.
 
-Includes an internal FastAPI-Admin dashboard at `/admin` (optional).
+Includes an internal FastAdmin dashboard at `/admin`.
 
 Also includes a Telegram bot (aiogram 3) for account and subscription actions.
 
@@ -69,8 +69,9 @@ Payment creation uses `plan_id` from `/plans`.
 Activate balance first with `POST /subscription/activate`.
 
 Admin panel bootstrap:
-- Set `HELIOS_BACKEND_ADMIN_PANEL_ENABLED=true` to enable `/admin` in admin deployments.
-- Set `HELIOS_BACKEND_ADMIN_PANEL_USERNAME` and `HELIOS_BACKEND_ADMIN_PANEL_PASSWORD` to auto-create first panel account.
+- Configure all runtime variables in `.env` (see `.env.example`).
+- Set `HELIOS_BACKEND_ADMIN_PANEL_USERNAME` and `HELIOS_BACKEND_ADMIN_PANEL_PASSWORD` for first admin account bootstrap.
+- Set `HELIOS_BACKEND_ADMIN_SECRET_KEY` for admin session signing.
 
 ## Local Run
 
@@ -80,7 +81,7 @@ cp .env.example .env
 aerich upgrade
 uv run -m helios_backend
 uv run taskiq worker helios_backend.tkq:broker
-uv run taskiq scheduler helios_backend.tkq:broker
+uv run taskiq scheduler helios_backend.tkq:scheduler
 uv run -m helios_backend.bot
 ```
 
@@ -110,3 +111,5 @@ Dev mode with live reload:
 ```bash
 docker-compose -f docker-compose.yml -f deploy/docker-compose.dev.yml --project-directory . up --build
 ```
+
+Admin panel URL: `http://localhost:8000/admin` (sign-in page is `http://localhost:8000/admin/login`).

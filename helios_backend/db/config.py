@@ -11,7 +11,7 @@ MODELS_MODULES: list[str] = [
     "helios_backend.db.models.vpn.runtime_setting",
 ]
 
-if settings.admin_panel_enabled and settings.environment.lower() != "pytest":
+if settings.environment.lower() != "pytest":
     MODELS_MODULES.append("helios_backend.db.models.vpn.admin_account")
 
 TORTOISE_CONFIG = {

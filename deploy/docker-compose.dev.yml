@@ -8,9 +8,6 @@ services:
     volumes:
       # Adds current directory as volume.
       - .:/app/src/
-    environment:
-      # Enables autoreload.
-      HELIOS_BACKEND_RELOAD: "True"
 
   taskiq-worker:
     volumes:
@@ -28,8 +25,7 @@ services:
     command:
       - taskiq
       - scheduler
-      - helios_backend.tkq:broker
-      - --reload
+      - helios_backend.tkq:scheduler
 
   telegram-bot:
     volumes:

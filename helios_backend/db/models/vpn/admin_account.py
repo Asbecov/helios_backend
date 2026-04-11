@@ -1,11 +1,14 @@
 from datetime import datetime
 
-from fastapi_admin.models import AbstractAdmin
-from tortoise import fields
+from tortoise import fields, models
 
 
-class AdminAccount(AbstractAdmin):
-    """Credentials used by FastAPI-Admin panel login provider."""
+class AdminAccount(models.Model):
+    """Credentials used by FastAdmin panel authentication."""
+
+    id = fields.IntField(pk=True)
+    username = fields.CharField(max_length=50, unique=True)
+    password = fields.CharField(max_length=200)
 
     created_at: datetime = fields.DatetimeField(auto_now_add=True)
 
