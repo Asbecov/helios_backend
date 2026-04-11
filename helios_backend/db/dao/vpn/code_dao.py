@@ -39,8 +39,8 @@ class CodeDao:
 
         if (
             code.type is CodeType.REFERRAL
-            and code.owner is not None
-            and code.owner.id == user_id
+            and code is not None
+            and getattr(code, "owner_id", None) == user_id
         ):
             return None
 
