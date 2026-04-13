@@ -8,6 +8,7 @@ maintainers = []
 readme = "README.md"
 dependencies = [
   "fastapi >=0.122.0,<1",
+  "yookassa >= 3.10.0",
   "fastadmin[fastapi,tortoise-orm] <=0.4.8",
   "aiogram >=3.22.0,<4",
   "uvicorn[standard] >=0.38.0,<1",

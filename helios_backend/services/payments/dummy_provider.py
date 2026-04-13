@@ -24,9 +24,13 @@ class DummyProvider(BasePaymentProvider):
         }
 
     async def verify(
-        self, payload: dict[str, Any], signature: str | None = None
+        self,
+        payload: dict[str, Any],
+        signature: str | None = None,
+        source_ip: str | None = None,
     ) -> bool:
         """Handle verify."""
         _ = payload
         _ = signature
+        _ = source_ip
         return True

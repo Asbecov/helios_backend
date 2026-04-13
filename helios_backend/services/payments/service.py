@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 from tortoise.transactions import in_transaction
@@ -11,8 +12,10 @@ from helios_backend.services.balance.service import BalanceService
 from helios_backend.services.codes.service import CodeService
 from helios_backend.services.payments.base import BasePaymentProvider
 from helios_backend.services.payments.dummy_provider import DummyProvider
+from helios_backend.services.payments.yookassa_provider import YookassaProvider
 from helios_backend.services.plans.service import PlanService
 from helios_backend.services.users.service import UserService
+from helios_backend.settings import settings
 
 
 class PaymentService:
@@ -35,6 +38,12 @@ class PaymentService:
         self._providers: dict[str, BasePaymentProvider] = {
             DummyProvider.name: DummyProvider()
         }
+        if (
+            settings.yookassa_shop_id
+            and settings.yookassa_api_key
+            and settings.yookassa_return_url
+        ):
+            self._providers[YookassaProvider.name] = YookassaProvider()
 
     def _provider(self, name: str) -> BasePaymentProvider:
         """Handle provider."""
@@ -96,12 +105,13 @@ class PaymentService:
     async def process_webhook(
         self,
         provider_name: str,
-        payload: dict[str, str],
+        payload: dict[str, Any],
         signature: str | None,
+        source_ip: str | None = None,
     ) -> Payment:
         """Handle process webhook."""
         provider = self._provider(provider_name)
-        if not await provider.verify(payload, signature):
+        if not await provider.verify(payload, signature, source_ip=source_ip):
             msg = "invalid webhook signature"
             raise ValueError(msg)
 

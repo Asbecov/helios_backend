@@ -19,6 +19,9 @@ class BasePaymentProvider(ABC):
 
     @abstractmethod
     async def verify(
-        self, payload: dict[str, Any], signature: str | None = None
+        self,
+        payload: dict[str, Any],
+        signature: str | None = None,
+        source_ip: str | None = None,
     ) -> bool:
         """Verify webhook signature/authenticity."""

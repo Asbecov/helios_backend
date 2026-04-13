@@ -88,7 +88,7 @@ class UserService:
         if user.marzban_username:
             return user.marzban_username
 
-        stem = str(user.id).replace("-", "")[:10]
+        stem = str(user.username).replace("-", "")
         allocated = await self._generate_unique_marzban_username(stem)
         user.marzban_username = allocated
         await user.save(update_fields=["marzban_username"])

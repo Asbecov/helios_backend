@@ -94,6 +94,11 @@ class Settings(BaseSettings):
     admin_site_name: str = "Helios Admin"
     admin_secret_key: str | None = None
 
+    # Billing settings.
+    yookassa_shop_id: str | None = None
+    yookassa_api_key: str | None = None
+    yookassa_return_url: str | None = None
+
     # Rate-limit network trust policy.
     rate_limit_trust_forwarded_ip: bool = False
 

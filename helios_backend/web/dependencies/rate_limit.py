@@ -6,8 +6,8 @@ from redis.asyncio import Redis
 from helios_backend.settings import settings
 
 
-def _resolve_client_identity(request: Request) -> str:
-    """Resolve client identity for rate limiting keys."""
+def resolve_client_ip(request: Request) -> str | None:
+    """Resolve effective client IP according to proxy trust policy."""
     if settings.rate_limit_trust_forwarded_ip:
         forwarded_for = request.headers.get("x-forwarded-for")
         if forwarded_for:
@@ -24,6 +24,14 @@ def _resolve_client_identity(request: Request) -> str:
     if request.client:
         return request.client.host
 
+    return None
+
+
+def _resolve_client_identity(request: Request) -> str:
+    """Resolve client identity for rate limiting keys."""
+    client_ip = resolve_client_ip(request)
+    if client_ip:
+        return client_ip
     return "unknown"
 
 

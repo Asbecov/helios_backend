@@ -20,14 +20,6 @@ class PaymentCreateResponse(BaseModel):
     checkout_url: str
 
 
-class WebhookPayload(BaseModel):
-    """Represent webhook payload."""
-
-    external_id: str
-    status: str = "paid"
-    code: str | None = None
-
-
 class WebhookResponse(BaseModel):
     """Represent webhook response."""
 

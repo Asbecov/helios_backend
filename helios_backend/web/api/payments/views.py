@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from typing import Any
+
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, status
 
 from helios_backend.services.admin.runtime_settings import RuntimeSettingService
 from helios_backend.services.payments.service import PaymentService
 from helios_backend.web.api.payments.schema import (
     PaymentCreateRequest,
     PaymentCreateResponse,
-    WebhookPayload,
     WebhookResponse,
 )
-from helios_backend.web.dependencies.rate_limit import rate_limit
+from helios_backend.web.dependencies.rate_limit import rate_limit, resolve_client_ip
 from helios_backend.web.dependencies.security import CurrentUser
 from helios_backend.web.dependencies.services import (
     get_payment_service,
@@ -66,16 +67,19 @@ async def create_payment(
 )
 async def payment_webhook(
     provider: str,
-    payload: WebhookPayload,
+    request: Request,
+    payload: dict[str, Any] = Body(...),
     x_signature: str | None = Header(default=None),
     service: PaymentService = Depends(get_payment_service),
 ) -> WebhookResponse:
     """Handle provider webhook notifications."""
+    source_ip = resolve_client_ip(request)
     try:
         payment = await service.process_webhook(
             provider_name=provider,
-            payload=payload.model_dump(),
+            payload=payload,
             signature=x_signature,
+            source_ip=source_ip,
         )
     except ValueError as exc:
         raise HTTPException(
