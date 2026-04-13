@@ -1,4 +1,5 @@
 import re
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol, cast
 from urllib.parse import urlsplit, urlunsplit
@@ -50,6 +51,36 @@ def validate_marzban_username(username: str) -> None:
 
     msg = "invalid Marzban username format"
     raise MarzbanServiceError(msg)
+
+
+@dataclass
+class MarzbanCreateUserPayload:
+    """Minimal request payload accepted by Marzban create-user endpoint."""
+
+    username: str
+    proxies: dict[str, Any]
+    inbounds: dict[str, Any]
+    expire: int
+    data_limit: int
+    data_limit_reset_strategy: str
+    status: str
+    on_hold_expire_duration: int = 0
+
+
+def build_create_user_payload(
+    username: str,
+    expires_at: datetime,
+) -> MarzbanCreateUserPayload:
+    """Build payload without response-only fields (created_at, links, etc.)."""
+    return MarzbanCreateUserPayload(
+        username=username,
+        proxies={},
+        inbounds={},
+        expire=int(expires_at.timestamp()),
+        data_limit=0,
+        data_limit_reset_strategy="no_reset",
+        status="active",
+    )
 
 
 class MarzbanClientProtocol(Protocol):
@@ -138,23 +169,22 @@ class MarzbanService:
         validate_marzban_username(username)
 
         client, token = client_info
-        from marzpy.api.user import User as MarzbanUser
-
-        marzban_user = MarzbanUser(
-            username=username,
-            proxies={},
-            inbounds={},
-            expire=int(expires_at.timestamp()),
-            data_limit=0,
-            data_limit_reset_strategy="no_reset",
-            status="active",
-        )
+        payload = build_create_user_payload(username=username, expires_at=expires_at)
         try:
-            await client.add_user(user=marzban_user, token=token)
+            await client.add_user(user=payload, token=token)
         except Exception as exc:
             if self._is_user_exists_error(exc):
                 msg = f"marzban user {username} already exists"
                 raise MarzbanUserAlreadyExistsError(msg) from exc
+
+            status_code = getattr(exc, "status", None)
+            if isinstance(status_code, int) and status_code == 422:
+                msg = (
+                    f"failed to create Marzban user {username}: "
+                    "invalid payload for /api/user"
+                )
+                raise MarzbanServiceError(msg) from exc
+
             msg = f"failed to create Marzban user {username}"
             raise MarzbanServiceError(msg) from exc
 

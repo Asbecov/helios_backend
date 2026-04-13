@@ -58,3 +58,13 @@ async def test_create_user_sends_integer_expire_timestamp(
 
     assert fake_client.received_user is not None
     assert fake_client.received_user.expire == int(expires_at.timestamp())
+    assert set(fake_client.received_user.__dict__) == {
+        "username",
+        "proxies",
+        "inbounds",
+        "expire",
+        "data_limit",
+        "data_limit_reset_strategy",
+        "status",
+        "on_hold_expire_duration",
+    }
