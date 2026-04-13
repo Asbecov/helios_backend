@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from typing import Any, Protocol, cast
 from urllib.parse import urlsplit, urlunsplit
@@ -11,6 +12,9 @@ class MarzbanServiceError(RuntimeError):
 
 class MarzbanUserAlreadyExistsError(MarzbanServiceError):
     """Raised when Marzban create_user fails because user already exists."""
+
+
+_MARZBAN_USERNAME_RE = re.compile(r"^[a-z0-9_]{3,32}$")
 
 
 def normalize_marzban_base_url(base_url: str) -> str:
@@ -37,6 +41,15 @@ def normalize_marzban_base_url(base_url: str) -> str:
 
     normalized_path = parsed.path.rstrip("/")
     return urlunsplit((parsed.scheme, parsed.netloc, normalized_path, "", ""))
+
+
+def validate_marzban_username(username: str) -> None:
+    """Validate username according to Marzban API constraints."""
+    if _MARZBAN_USERNAME_RE.fullmatch(username):
+        return
+
+    msg = "invalid Marzban username format"
+    raise MarzbanServiceError(msg)
 
 
 class MarzbanClientProtocol(Protocol):
@@ -122,6 +135,8 @@ class MarzbanService:
         if client_info is None:
             return
 
+        validate_marzban_username(username)
+
         client, token = client_info
         from marzpy.api.user import User as MarzbanUser
 
@@ -149,6 +164,8 @@ class MarzbanService:
         if client_info is None:
             return
 
+        validate_marzban_username(username)
+
         client, token = client_info
         try:
             user = await client.get_user(username, token=token)
@@ -163,6 +180,8 @@ class MarzbanService:
         client_info = await self._get_client_and_token()
         if client_info is None:
             return {"expire": None}
+
+        validate_marzban_username(username)
 
         client, token = client_info
         try:
@@ -189,6 +208,8 @@ class MarzbanService:
         client_info = await self._get_client_and_token()
         if client_info is None:
             return
+
+        validate_marzban_username(username)
 
         client, token = client_info
         try:
