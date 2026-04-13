@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Any, Protocol, cast
+from urllib.parse import urlsplit, urlunsplit
 
 from helios_backend.settings import settings
 
@@ -10,6 +11,32 @@ class MarzbanServiceError(RuntimeError):
 
 class MarzbanUserAlreadyExistsError(MarzbanServiceError):
     """Raised when Marzban create_user fails because user already exists."""
+
+
+def normalize_marzban_base_url(base_url: str) -> str:
+    """Validate and normalize Marzban panel base URL."""
+    raw_value = base_url.strip()
+    if not raw_value:
+        msg = "HELIOS_BACKEND_MARZBAN_BASE_URL is empty"
+        raise MarzbanServiceError(msg)
+
+    parsed = urlsplit(raw_value)
+    if not parsed.scheme:
+        msg = (
+            "HELIOS_BACKEND_MARZBAN_BASE_URL must include scheme (http:// or https://)"
+        )
+        raise MarzbanServiceError(msg)
+
+    if parsed.scheme not in {"http", "https"}:
+        msg = "HELIOS_BACKEND_MARZBAN_BASE_URL must use http or https"
+        raise MarzbanServiceError(msg)
+
+    if not parsed.netloc:
+        msg = "HELIOS_BACKEND_MARZBAN_BASE_URL must include host"
+        raise MarzbanServiceError(msg)
+
+    normalized_path = parsed.path.rstrip("/")
+    return urlunsplit((parsed.scheme, parsed.netloc, normalized_path, "", ""))
 
 
 class MarzbanClientProtocol(Protocol):
@@ -58,6 +85,8 @@ class MarzbanService:
         ):
             return None
 
+        panel_url = normalize_marzban_base_url(settings.marzban_base_url)
+
         from marzpy import Marzban
 
         client = cast(
@@ -65,7 +94,7 @@ class MarzbanService:
             Marzban(
                 settings.marzban_admin_username,
                 settings.marzban_admin_password,
-                settings.marzban_base_url,
+                panel_url,
             ),
         )
 
@@ -74,6 +103,16 @@ class MarzbanService:
         except Exception as exc:
             msg = "failed to authenticate against Marzban"
             raise MarzbanServiceError(msg) from exc
+
+        if not isinstance(token, dict):
+            msg = "failed to authenticate against Marzban: invalid token response"
+            raise MarzbanServiceError(msg)
+
+        access_token = token.get("access_token")
+        token_type = token.get("token_type")
+        if not access_token or not token_type:
+            msg = "failed to authenticate against Marzban: check admin credentials"
+            raise MarzbanServiceError(msg)
 
         return client, token
 
