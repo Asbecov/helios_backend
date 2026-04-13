@@ -7,12 +7,9 @@
 }
 
 {$SUBSCRIPTION_DOMAIN} {
-  # Forward public subscription links to Marzban endpoint.
-  reverse_proxy {$HELIOS_BACKEND_MARZBAN_BASE_URL} {
-    header_up Host {host}
-  }
+  reverse_proxy unix//var/lib/marzban/marzban.socket
 }
 
 {$SITE_DOMAIN} {
-  reverse_proxy site:80
+  reverse_proxy static:80
 }

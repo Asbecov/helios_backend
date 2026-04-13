@@ -1,6 +1,5 @@
 services:
   api:
-    # API is published only through reverse proxy in production.
     environment:
       HELIOS_BACKEND_ENVIRONMENT: production
       HELIOS_BACKEND_RELOAD: "False"
@@ -21,14 +20,14 @@ services:
       HELIOS_BACKEND_ENVIRONMENT: production
       HELIOS_BACKEND_RELOAD: "False"
 
-  site:
+  static:
     image: nginx:1.27-alpine
     restart: always
     volumes:
-      - ./deploy/site:/usr/share/nginx/html:ro
+      - ./helios_backend/static:/usr/share/nginx/html:ro
 
   caddy:
-    image: caddy:2.9.1-alpine
+    image: caddy
     restart: always
     depends_on:
       api:
@@ -40,16 +39,24 @@ services:
       API_DOMAIN: ${API_DOMAIN:?Set API_DOMAIN in .env}
       SUBSCRIPTION_DOMAIN: ${SUBSCRIPTION_DOMAIN:?Set SUBSCRIPTION_DOMAIN in .env}
       SITE_DOMAIN: ${SITE_DOMAIN:?Set SITE_DOMAIN in .env}
-      HELIOS_BACKEND_MARZBAN_BASE_URL: ${HELIOS_BACKEND_MARZBAN_BASE_URL:?Set HELIOS_BACKEND_MARZBAN_BASE_URL in .env}
     ports:
       - "80:80"
       - "443:443"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     volumes:
+      - /var/lib/marzban:/var/lib/marzban
       - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+
+  marzban:
+    image: gozargah/marzban:latest
+    restart: always
+    env_file: ./deploy/.env
+    network_mode: host
+    volumes:
+      - /var/lib/marzban:/var/lib/marzban
+    depends_on:
+      - caddy
 
 volumes:
   caddy-data:
