@@ -106,6 +106,78 @@ class MarzbanClientProtocol(Protocol):
         """Handle delete user."""
         ...
 
+    async def get_inbounds(self, token: Any) -> Any:
+        """Fetch available inbounds configuration from Marzban."""
+        ...
+
+
+_KNOWN_PROTOCOLS = {
+    "vmess",
+    "vless",
+    "trojan",
+    "shadowsocks",
+    "hysteria",
+    "hysteria2",
+    "tuic",
+    "wireguard",
+    "ssh",
+    "socks",
+    "http",
+}
+
+
+def _unique_tags(values: list[str]) -> list[str]:
+    """Keep order while dropping duplicate tags."""
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
+
+
+def _extract_tags(value: Any) -> list[str]:
+    """Extract inbound tags from nested Marzban inbounds payload."""
+    if isinstance(value, str):
+        return [value]
+
+    if isinstance(value, list):
+        list_tags: list[str] = []
+        for item in value:
+            list_tags.extend(_extract_tags(item))
+        return _unique_tags(list_tags)
+
+    if isinstance(value, dict):
+        dict_tags: list[str] = []
+        tag_value = value.get("tag")
+        if isinstance(tag_value, str):
+            dict_tags.append(tag_value)
+        for nested in value.values():
+            dict_tags.extend(_extract_tags(nested))
+        return _unique_tags(dict_tags)
+
+    return []
+
+
+def build_inbounds_and_proxies(
+    inbounds_payload: Any,
+) -> tuple[dict[str, list[str]], dict[str, dict[str, Any]]]:
+    """Build user inbounds/proxies maps from Marzban /api/inbounds response."""
+    inbounds: dict[str, list[str]] = {}
+
+    if isinstance(inbounds_payload, dict):
+        for protocol, payload in inbounds_payload.items():
+            if not isinstance(protocol, str) or protocol not in _KNOWN_PROTOCOLS:
+                continue
+            extracted_tags = _extract_tags(payload)
+            if extracted_tags:
+                inbounds[protocol] = extracted_tags
+
+    proxies: dict[str, dict[str, Any]] = {protocol: {} for protocol in inbounds}
+    return inbounds, proxies
+
 
 class MarzbanService:
     """Client for Marzban API operations backed by marzpy."""
@@ -119,6 +191,34 @@ class MarzbanService:
 
         message = str(exc).lower()
         return "exist" in message and "user" in message
+
+    @staticmethod
+    def _is_payload_validation_error(exc: Exception) -> bool:
+        """Return True when Marzban rejects request payload with 422."""
+        status_code = getattr(exc, "status", None)
+        return isinstance(status_code, int) and status_code == 422
+
+    async def _build_payload_from_inbounds(
+        self,
+        client: MarzbanClientProtocol,
+        token: Any,
+        username: str,
+        expires_at: datetime,
+    ) -> MarzbanCreateUserPayload | None:
+        """Build create-user payload from live Marzban inbounds."""
+        try:
+            inbounds_payload = await client.get_inbounds(token=token)
+        except Exception:
+            return None
+
+        inbounds, proxies = build_inbounds_and_proxies(inbounds_payload)
+        if not inbounds:
+            return None
+
+        payload = build_create_user_payload(username=username, expires_at=expires_at)
+        payload.inbounds = inbounds
+        payload.proxies = proxies
+        return payload
 
     async def _get_client_and_token(self) -> tuple[MarzbanClientProtocol, Any] | None:
         """Handle get client and token."""
@@ -177,8 +277,22 @@ class MarzbanService:
                 msg = f"marzban user {username} already exists"
                 raise MarzbanUserAlreadyExistsError(msg) from exc
 
-            status_code = getattr(exc, "status", None)
-            if isinstance(status_code, int) and status_code == 422:
+            if self._is_payload_validation_error(exc):
+                retry_payload = await self._build_payload_from_inbounds(
+                    client=client,
+                    token=token,
+                    username=username,
+                    expires_at=expires_at,
+                )
+                if retry_payload is not None:
+                    try:
+                        await client.add_user(user=retry_payload, token=token)
+                        return
+                    except Exception as retry_exc:
+                        if self._is_user_exists_error(retry_exc):
+                            msg = f"marzban user {username} already exists"
+                            raise MarzbanUserAlreadyExistsError(msg) from retry_exc
+
                 msg = (
                     f"failed to create Marzban user {username}: "
                     "invalid payload for /api/user"
