@@ -51,7 +51,11 @@ class MarzbanService:
 
     async def _get_client_and_token(self) -> tuple[MarzbanClientProtocol, Any] | None:
         """Handle get client and token."""
-        if not settings.marzban_base_url:
+        if (
+            not settings.marzban_base_url
+            or not settings.marzban_admin_username
+            or not settings.marzban_admin_password
+        ):
             return None
 
         from marzpy import Marzban
@@ -59,17 +63,11 @@ class MarzbanService:
         client = cast(
             MarzbanClientProtocol,
             Marzban(
-                settings.marzban_admin_username or "",
-                settings.marzban_admin_password or "",
+                settings.marzban_admin_username,
+                settings.marzban_admin_password,
                 settings.marzban_base_url,
             ),
         )
-
-        if settings.marzban_api_token:
-            return client, settings.marzban_api_token
-
-        if not settings.marzban_admin_username or not settings.marzban_admin_password:
-            return None
 
         try:
             token = await client.get_token()

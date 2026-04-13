@@ -80,7 +80,6 @@ class Settings(BaseSettings):
 
     # Marzban integration.
     marzban_base_url: str | None = None
-    marzban_api_token: str | None = None
     marzban_admin_username: str | None = None
     marzban_admin_password: str | None = None
 

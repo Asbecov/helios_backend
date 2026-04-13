@@ -119,7 +119,7 @@ Admin panel URL: `http://localhost:8000/admin` (sign-in page is `http://localhos
 This repository includes a production override and edge proxy config for routing:
 
 - `api.example.com` -> Helios API (`api:8000`)
-- `sub.example.com` -> Marzban subscription host (`MARZBAN_SUBSCRIPTION_UPSTREAM`)
+- `sub.example.com` -> Marzban subscription host (`HELIOS_BACKEND_MARZBAN_BASE_URL`)
 - `app.example.com` -> website service (`site`)
 
 Files:
@@ -143,7 +143,7 @@ Copy `.env.example` to `.env` and set production values:
 - `API_DOMAIN`
 - `SUBSCRIPTION_DOMAIN`
 - `SITE_DOMAIN`
-- `MARZBAN_SUBSCRIPTION_UPSTREAM`
+- `HELIOS_BACKEND_MARZBAN_BASE_URL`
 
 For Marzban integration:
 
@@ -171,10 +171,10 @@ cd /opt/marzban
 docker compose up -d
 ```
 
-3. Set `MARZBAN_SUBSCRIPTION_UPSTREAM` in Helios `.env` to:
+3. Set `HELIOS_BACKEND_MARZBAN_BASE_URL` in Helios `.env` to:
 
 ```env
-MARZBAN_SUBSCRIPTION_UPSTREAM=http://host.docker.internal:8000
+HELIOS_BACKEND_MARZBAN_BASE_URL=http://host.docker.internal:8000
 ```
 
 This works with `marzban.sh` default host-network mode.

@@ -8,7 +8,7 @@
 
 {$SUBSCRIPTION_DOMAIN} {
   # Forward public subscription links to Marzban endpoint.
-  reverse_proxy {$MARZBAN_SUBSCRIPTION_UPSTREAM} {
+  reverse_proxy {$HELIOS_BACKEND_MARZBAN_BASE_URL} {
     header_up Host {host}
   }
 }
