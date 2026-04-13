@@ -44,18 +44,12 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    networks:
-      - default
-      - marzban
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
-
-networks:
-  marzban:
-    external: true
-    name: ${MARZBAN_DOCKER_NETWORK:-marzban_default}
 
 volumes:
   caddy-data:

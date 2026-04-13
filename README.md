@@ -144,7 +144,6 @@ Copy `.env.example` to `.env` and set production values:
 - `SUBSCRIPTION_DOMAIN`
 - `SITE_DOMAIN`
 - `MARZBAN_SUBSCRIPTION_UPSTREAM`
-- `MARZBAN_DOCKER_NETWORK`
 
 For Marzban integration:
 
@@ -172,8 +171,13 @@ cd /opt/marzban
 docker compose up -d
 ```
 
-3. Ensure `MARZBAN_DOCKER_NETWORK` in Helios `.env` matches Marzban network name.
-Default from script-based install is usually `marzban_default`.
+3. Set `MARZBAN_SUBSCRIPTION_UPSTREAM` in Helios `.env` to:
+
+```env
+MARZBAN_SUBSCRIPTION_UPSTREAM=http://host.docker.internal:8000
+```
+
+This works with `marzban.sh` default host-network mode.
 
 4. Start Helios production stack (with Caddy):
 
