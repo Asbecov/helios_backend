@@ -130,7 +130,7 @@ Files:
 
 ### 1. Prepare DNS
 
-Point `api`, `sub`, and `app` subdomains to your DigitalOcean Droplet public IP.
+Point `api`, `sub`, and `app` subdomains to your public IP.
 
 ### 2. Prepare environment
 

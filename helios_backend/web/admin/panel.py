@@ -1,3 +1,4 @@
+import hmac
 import logging
 
 from fastadmin import TortoiseModelAdmin, register
@@ -13,6 +14,11 @@ from helios_backend.db.models.vpn.payment import Payment
 from helios_backend.db.models.vpn.runtime_setting import RuntimeSetting
 from helios_backend.db.models.vpn.subscription_plan import SubscriptionPlan
 from helios_backend.db.models.vpn.user import User
+from helios_backend.services.auth.passwords import (
+    hash_password,
+    is_password_hash,
+    verify_password,
+)
 from helios_backend.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -32,9 +38,26 @@ class AdminAccountModelAdmin(TortoiseModelAdmin):
     async def authenticate(self, username: str, password: str) -> int | None:
         """Authenticate admin account and return primary key on success."""
         account = await self.model_cls.filter(username=username).first()
-        if not account or account.password != password:
+        if account is None:
             return None
-        return account.id
+
+        if verify_password(password, account.password):
+            return account.id
+
+        # Backward compatibility for legacy plaintext records before hashing.
+        if not is_password_hash(account.password) and hmac.compare_digest(
+            account.password,
+            password,
+        ):
+            account.password = hash_password(password)
+            await account.save(update_fields=["password"])
+            logger.info(
+                "Migrated plaintext admin password to hash for %s",
+                account.username,
+            )
+            return account.id
+
+        return None
 
     async def change_password(self, id: int | str, password: str) -> None:
         """Update admin password."""
@@ -42,7 +65,7 @@ class AdminAccountModelAdmin(TortoiseModelAdmin):
         if account is None:
             msg = "admin account not found"
             raise ValueError(msg)
-        account.password = password
+        account.password = hash_password(password)
         await account.save(update_fields=["password"])
 
 
@@ -169,10 +192,10 @@ async def configure_admin_panel(_: FastAPI) -> None:
 
     account = await AdminAccount.filter(username=username).first()
     if account is None:
-        await AdminAccount.create(username=username, password=password)
+        await AdminAccount.create(username=username, password=hash_password(password))
         logger.info("Bootstrap admin account created for FastAdmin panel")
-    elif account.password != password:
-        account.password = password
+    elif not verify_password(password, account.password):
+        account.password = hash_password(password)
         await account.save(update_fields=["password"])
         logger.info("Bootstrap admin account password synchronized for FastAdmin panel")
 
