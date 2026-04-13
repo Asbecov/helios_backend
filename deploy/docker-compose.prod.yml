@@ -32,7 +32,7 @@ services:
     depends_on:
       api:
         condition: service_started
-      site:
+      static:
         condition: service_started
     environment:
       CADDY_EMAIL: ${CADDY_EMAIL:?Set CADDY_EMAIL in .env}
