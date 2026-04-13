@@ -34,3 +34,7 @@ services:
       - python
       - -m
       - helios_backend.bot
+
+  db:
+    ports:
+      - "${HELIOS_BACKEND_DB_EXTERNAL_PORT:-5432}:5432"

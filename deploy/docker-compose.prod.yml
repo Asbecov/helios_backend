@@ -1,0 +1,62 @@
+services:
+  api:
+    # API is published only through reverse proxy in production.
+    environment:
+      HELIOS_BACKEND_ENVIRONMENT: production
+      HELIOS_BACKEND_RELOAD: "False"
+      HELIOS_BACKEND_RATE_LIMIT_TRUST_FORWARDED_IP: "True"
+
+  taskiq-worker:
+    environment:
+      HELIOS_BACKEND_ENVIRONMENT: production
+      HELIOS_BACKEND_RELOAD: "False"
+
+  taskiq-scheduler:
+    environment:
+      HELIOS_BACKEND_ENVIRONMENT: production
+      HELIOS_BACKEND_RELOAD: "False"
+
+  telegram-bot:
+    environment:
+      HELIOS_BACKEND_ENVIRONMENT: production
+      HELIOS_BACKEND_RELOAD: "False"
+
+  site:
+    image: nginx:1.27-alpine
+    restart: always
+    volumes:
+      - ./deploy/site:/usr/share/nginx/html:ro
+
+  caddy:
+    image: caddy:2.9.1-alpine
+    restart: always
+    depends_on:
+      api:
+        condition: service_started
+      site:
+        condition: service_started
+    environment:
+      CADDY_EMAIL: ${CADDY_EMAIL:?Set CADDY_EMAIL in .env}
+      API_DOMAIN: ${API_DOMAIN:?Set API_DOMAIN in .env}
+      SUBSCRIPTION_DOMAIN: ${SUBSCRIPTION_DOMAIN:?Set SUBSCRIPTION_DOMAIN in .env}
+      SITE_DOMAIN: ${SITE_DOMAIN:?Set SITE_DOMAIN in .env}
+      MARZBAN_SUBSCRIPTION_UPSTREAM: ${MARZBAN_SUBSCRIPTION_UPSTREAM:?Set MARZBAN_SUBSCRIPTION_UPSTREAM in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - default
+      - marzban
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+networks:
+  marzban:
+    external: true
+    name: ${MARZBAN_DOCKER_NETWORK:-marzban_default}
+
+volumes:
+  caddy-data:
+  caddy-config:

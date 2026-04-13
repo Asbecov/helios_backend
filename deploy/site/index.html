@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Helios</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f5ef;
+      --fg: #1f2a37;
+      --muted: #5d6775;
+      --card: #ffffff;
+      --accent: #0a7a5e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: radial-gradient(circle at 10% 10%, #fef7e5 0%, var(--bg) 45%, #eef5f2 100%);
+      color: var(--fg);
+    }
+    main {
+      max-width: 720px;
+      margin: 12vh auto;
+      background: var(--card);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 16px 40px rgba(20, 30, 40, 0.12);
+    }
+    h1 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      font-size: clamp(28px, 5vw, 42px);
+      letter-spacing: 0.02em;
+    }
+    p { line-height: 1.6; color: var(--muted); }
+    .links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    a {
+      text-decoration: none;
+      background: var(--accent);
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Helios is online</h1>
+    <p>This placeholder site is served from the production stack. Replace deploy/site with your real frontend build.</p>
+    <div class="links">
+      <a href="https://api.example.com/api/docs">API docs</a>
+      <a href="https://sub.example.com">Subscription host</a>
+    </div>
+  </main>
+</body>
+</html>

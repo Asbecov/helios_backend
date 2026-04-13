@@ -53,8 +53,6 @@ services:
     volumes:
       - helios_backend-db-data:/var/lib/postgresql
     restart: always
-    ports:
-      - "${HELIOS_BACKEND_DB_EXTERNAL_PORT:-5432}:5432"
     healthcheck:
       test: pg_isready -U ${HELIOS_BACKEND_DB_USER:-helios_backend}
       interval: 2s

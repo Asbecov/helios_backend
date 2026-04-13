@@ -113,3 +113,84 @@ docker-compose -f docker-compose.yml -f deploy/docker-compose.dev.yml --project-
 ```
 
 Admin panel URL: `http://localhost:8000/admin` (sign-in page is `http://localhost:8000/admin/login`).
+
+## Production on one domain (subdomains)
+
+This repository includes a production override and edge proxy config for routing:
+
+- `api.example.com` -> Helios API (`api:8000`)
+- `sub.example.com` -> Marzban subscription host (`MARZBAN_SUBSCRIPTION_UPSTREAM`)
+- `app.example.com` -> website service (`site`)
+
+Files:
+
+- `deploy/docker-compose.prod.yml`
+- `deploy/caddy/Caddyfile`
+- `deploy/site/index.html` (placeholder website)
+
+### 1. Prepare DNS
+
+Point `api`, `sub`, and `app` subdomains to your DigitalOcean Droplet public IP.
+
+### 2. Prepare environment
+
+Copy `.env.example` to `.env` and set production values:
+
+- `HELIOS_BACKEND_ENVIRONMENT=production`
+- `HELIOS_BACKEND_RELOAD=False`
+- `HELIOS_BACKEND_RATE_LIMIT_TRUST_FORWARDED_IP=True`
+- `CADDY_EMAIL`
+- `API_DOMAIN`
+- `SUBSCRIPTION_DOMAIN`
+- `SITE_DOMAIN`
+- `MARZBAN_SUBSCRIPTION_UPSTREAM`
+- `MARZBAN_DOCKER_NETWORK`
+
+For Marzban integration:
+
+- Keep `HELIOS_BACKEND_MARZBAN_BASE_URL` on private/internal Marzban API endpoint.
+- Keep public subscription host on `SUBSCRIPTION_DOMAIN`.
+
+### 2.1 Caddy-only certificates for Marzban (no Certbot in Marzban)
+
+If Marzban is installed separately (for example via `marzban.sh` in `/opt/marzban`),
+leave TLS termination only on Caddy and run Marzban behind it.
+
+1. Update `/opt/marzban/.env`:
+
+```env
+DEBUG=True
+UVICORN_SSL_CERTFILE=
+UVICORN_SSL_KEYFILE=
+XRAY_SUBSCRIPTION_URL_PREFIX=https://sub.example.com
+```
+
+2. Restart Marzban:
+
+```bash
+cd /opt/marzban
+docker compose up -d
+```
+
+3. Ensure `MARZBAN_DOCKER_NETWORK` in Helios `.env` matches Marzban network name.
+Default from script-based install is usually `marzban_default`.
+
+4. Start Helios production stack (with Caddy):
+
+```bash
+docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build
+```
+
+In this setup, certificates for `api`, `sub`, and `app` domains are issued by Caddy.
+
+### 3. Run production stack
+
+```bash
+docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build
+```
+
+This command starts API, workers, bot, DB, Redis, migrator, website container, and Caddy with automatic TLS.
+
+### 4. Website replacement
+
+Replace `deploy/site` content with your real frontend build output.

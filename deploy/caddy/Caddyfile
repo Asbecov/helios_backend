@@ -1,0 +1,18 @@
+{
+  email {$CADDY_EMAIL}
+}
+
+{$API_DOMAIN} {
+  reverse_proxy api:8000
+}
+
+{$SUBSCRIPTION_DOMAIN} {
+  # Forward public subscription links to Marzban endpoint.
+  reverse_proxy {$MARZBAN_SUBSCRIPTION_UPSTREAM} {
+    header_up Host {host}
+  }
+}
+
+{$SITE_DOMAIN} {
+  reverse_proxy site:80
+}
