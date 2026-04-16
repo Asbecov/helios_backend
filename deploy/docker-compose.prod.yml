@@ -39,6 +39,8 @@ services:
       API_DOMAIN: ${API_DOMAIN:?Set API_DOMAIN in .env}
       SUBSCRIPTION_DOMAIN: ${SUBSCRIPTION_DOMAIN:?Set SUBSCRIPTION_DOMAIN in .env}
       SITE_DOMAIN: ${SITE_DOMAIN:?Set SITE_DOMAIN in .env}
+      GRPC_ROUTE: ${GRPC_ROUTE:?Set GRPC_ROUTE in .env}
+      VLESS_PORT: ${VLESS_PORT:?Set VLESS_PORT in .env}
     ports:
       - "80:80"
       - "443:443"
@@ -52,7 +54,6 @@ services:
     image: gozargah/marzban:latest
     restart: always
     env_file: ./deploy/.env
-    network_mode: host
     volumes:
       - /var/lib/marzban:/var/lib/marzban
     depends_on:

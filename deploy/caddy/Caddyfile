@@ -7,6 +7,12 @@
 }
 
 {$SUBSCRIPTION_DOMAIN} {
+  reverse_proxy {$GRPC_ROUTE}* marzban:{$VLESS_PORT} {
+    transport http {
+        versions h2c
+    }
+  }
+
   reverse_proxy unix//var/lib/marzban/marzban.socket
 }
 
