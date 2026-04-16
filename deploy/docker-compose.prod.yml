@@ -30,6 +30,8 @@ services:
     image: caddy
     restart: always
     depends_on:
+      marzban:
+        condition: service_started
       api:
         condition: service_started
       static:
@@ -56,8 +58,6 @@ services:
     env_file: ./deploy/.env
     volumes:
       - /var/lib/marzban:/var/lib/marzban
-    depends_on:
-      - caddy
 
 volumes:
   caddy-data:
