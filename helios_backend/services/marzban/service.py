@@ -1,6 +1,8 @@
+from contextlib import suppress
 from datetime import datetime
-from typing import Any, Protocol, cast
 from urllib.parse import urlsplit, urlunsplit
+
+from marzban import MarzbanAPI, MarzbanTokenCache, ProxySettings, UserCreate, UserModify
 
 from helios_backend.settings import settings
 
@@ -13,7 +15,7 @@ class MarzbanUserAlreadyExistsError(MarzbanServiceError):
     """Raised when Marzban create_user fails because user already exists."""
 
 
-def normalize_marzban_base_url(base_url: str) -> str:
+def _normalize_marzban_base_url(base_url: str) -> str:
     """Validate and normalize Marzban panel base URL."""
     raw_value = base_url.strip()
     if not raw_value:
@@ -39,160 +41,189 @@ def normalize_marzban_base_url(base_url: str) -> str:
     return urlunsplit((parsed.scheme, parsed.netloc, normalized_path, "", ""))
 
 
-class MarzbanClientProtocol(Protocol):
-    """Represent marzban client protocol."""
-
-    async def get_token(self) -> Any:
-        """Handle get token."""
-        ...
-
-    async def add_user(self, *, user: Any, token: Any) -> None:
-        """Handle add user."""
-        ...
-
-    async def get_user(self, username: str, *, token: Any) -> Any:
-        """Handle get user."""
-        ...
-
-    async def modify_user(self, username: str, *, token: Any, user: Any) -> None:
-        """Handle modify user."""
-        ...
-
-    async def delete_user(self, username: str, *, token: Any) -> None:
-        """Handle delete user."""
-        ...
-
-
 class MarzbanService:
-    """Client for Marzban API operations backed by marzpy."""
+    """Client for Marzban API operations via marzban public API."""
+
+    _DEFAULT_PROXY_NAME = "vless"
+    _DEFAULT_INBOUND_NAME = "vless reality"
+    _DEFAULT_PROXY_SETTINGS = ProxySettings(flow="xtls-rprx-vision")
+
+    def __init__(self) -> None:
+        """Initialize lazy Marzban API client and token cache."""
+        self._api: MarzbanAPI | None = None
+        self._token_cache: MarzbanTokenCache | None = None
+        self._fingerprint: tuple[str, str, str] | None = None
 
     @staticmethod
     def _is_user_exists_error(exc: Exception) -> bool:
         """Return True when create_user failed because user already exists."""
         status_code = getattr(exc, "status", None)
+        if not isinstance(status_code, int):
+            status_code = getattr(exc, "status_code", None)
+        if not isinstance(status_code, int):
+            response = getattr(exc, "response", None)
+            status_code = getattr(response, "status_code", None)
         if isinstance(status_code, int) and status_code == 409:
             return True
 
         message = str(exc).lower()
-        return "exist" in message and "user" in message
+        return ("exist" in message and "user" in message) or "already exists" in message
 
-    async def _get_client_and_token(self) -> tuple[MarzbanClientProtocol, Any] | None:
-        """Handle get client and token."""
-        if (
-            not settings.marzban_base_url
-            or not settings.marzban_admin_username
-            or not settings.marzban_admin_password
-        ):
-            return None
-
-        panel_url = normalize_marzban_base_url(settings.marzban_base_url)
-
-        from marzpy import Marzban
-
-        client = cast(
-            MarzbanClientProtocol,
-            Marzban(
-                settings.marzban_admin_username,
-                settings.marzban_admin_password,
-                panel_url,
-            ),
+    @staticmethod
+    def _is_configured() -> bool:
+        """Check whether Marzban settings are configured."""
+        return bool(
+            settings.marzban_base_url
+            and settings.marzban_admin_username
+            and settings.marzban_admin_password
         )
 
+    async def _ensure_client(self) -> tuple[MarzbanAPI, MarzbanTokenCache] | None:
+        """Build or reuse Marzban API client and token cache."""
+        if not self._is_configured():
+            return None
+
+        base_url = _normalize_marzban_base_url(settings.marzban_base_url or "")
+        username = settings.marzban_admin_username or ""
+        password = settings.marzban_admin_password or ""
+        fingerprint = (base_url, username, password)
+
+        if self._api is not None and self._token_cache is not None:
+            if self._fingerprint == fingerprint:
+                return self._api, self._token_cache
+
+            with suppress(Exception):
+                await self._api.close()
+            self._api = None
+            self._token_cache = None
+
+        api = MarzbanAPI(base_url=base_url)
+        token_cache = MarzbanTokenCache(
+            client=api,
+            username=username,
+            password=password,
+        )
+
+        self._api = api
+        self._token_cache = token_cache
+        self._fingerprint = fingerprint
+        return api, token_cache
+
+    async def _get_token(self) -> tuple[MarzbanAPI, str] | None:
+        """Get active Marzban token from token cache."""
+        client_bundle = await self._ensure_client()
+        if client_bundle is None:
+            return None
+
+        api, token_cache = client_bundle
         try:
-            token = await client.get_token()
+            token = await token_cache.get_token()
         except Exception as exc:
             msg = "failed to authenticate against Marzban"
             raise MarzbanServiceError(msg) from exc
 
-        if not isinstance(token, dict):
-            msg = "failed to authenticate against Marzban: invalid token response"
-            raise MarzbanServiceError(msg)
-
-        access_token = token.get("access_token")
-        token_type = token.get("token_type")
-        if not access_token or not token_type:
+        if not isinstance(token, str) or not token:
             msg = "failed to authenticate against Marzban: check admin credentials"
             raise MarzbanServiceError(msg)
 
-        return client, token
+        return api, token
 
     async def create_user(self, username: str, expires_at: datetime) -> None:
-        """Handle create user."""
-        client_info = await self._get_client_and_token()
-        if client_info is None:
+        """Create a user in Marzban."""
+        token_bundle = await self._get_token()
+        if token_bundle is None:
             return
 
-        client, token = client_info
-        from marzpy.api.user import User as MarzbanUser
-
-        marzban_user = MarzbanUser(
+        api, token = token_bundle
+        user = UserCreate(
             username=username,
-            proxies={"shadowsocks": {}},
-            inbounds={"shadowsocks": ["Shadowsocks TCP"]},
+            proxies={self._DEFAULT_PROXY_NAME: self._DEFAULT_PROXY_SETTINGS},
+            inbounds={self._DEFAULT_PROXY_NAME: [self._DEFAULT_INBOUND_NAME]},
             expire=int(expires_at.timestamp()),
             data_limit=0,
             data_limit_reset_strategy="no_reset",
             status="active",
         )
+
         try:
-            await client.add_user(user=marzban_user, token=token)
+            await api.add_user(user=user, token=token)
         except Exception as exc:
             if self._is_user_exists_error(exc):
                 msg = f"marzban user {username} already exists"
                 raise MarzbanUserAlreadyExistsError(msg) from exc
+
             msg = f"failed to create Marzban user {username}"
             raise MarzbanServiceError(msg) from exc
 
     async def extend_user(self, username: str, expires_at: datetime) -> None:
-        """Handle extend user."""
-        client_info = await self._get_client_and_token()
-        if client_info is None:
+        """Update user expiry in Marzban."""
+        token_bundle = await self._get_token()
+        if token_bundle is None:
             return
 
-        client, token = client_info
+        api, token = token_bundle
         try:
-            user = await client.get_user(username, token=token)
-            user.expire = int(expires_at.timestamp())
-            await client.modify_user(username, token=token, user=user)
+            await api.modify_user(
+                username=username,
+                user=UserModify(expire=int(expires_at.timestamp())),
+                token=token,
+            )
         except Exception as exc:
             msg = f"failed to extend Marzban user {username}"
             raise MarzbanServiceError(msg) from exc
 
     async def get_user_info(self, username: str) -> dict[str, str | int | None]:
-        """Handle get user info."""
-        client_info = await self._get_client_and_token()
-        if client_info is None:
+        """Fetch user details from Marzban."""
+        token_bundle = await self._get_token()
+        if token_bundle is None:
             return {"expire": None}
 
-        client, token = client_info
+        api, token = token_bundle
         try:
-            user = await client.get_user(username, token=token)
+            user = await api.get_user(username=username, token=token)
         except Exception as exc:
             msg = f"failed to fetch Marzban user info for {username}"
             raise MarzbanServiceError(msg) from exc
 
+        expire_value = getattr(user, "expire", None)
+        subscription_value = getattr(user, "subscription_url", None)
         return {
-            "expire": getattr(user, "expire", None),
-            "subscription_url": getattr(user, "subscription_url", None),
+            "expire": expire_value if isinstance(expire_value, int) else None,
+            "subscription_url": (
+                subscription_value if isinstance(subscription_value, str) else None
+            ),
         }
 
     async def get_subscription_url(self, username: str) -> str | None:
-        """Handle get subscription url."""
+        """Get user subscription URL from Marzban."""
         user_info = await self.get_user_info(username)
         subscription_url = user_info.get("subscription_url")
         if isinstance(subscription_url, str):
             return subscription_url
         return None
 
-    async def delete_user(self, username: str) -> None:
-        """Handle delete user."""
-        client_info = await self._get_client_and_token()
-        if client_info is None:
+    async def delete_user(self, username: str | None) -> None:
+        """Delete user from Marzban."""
+        if not username:
             return
 
-        client, token = client_info
+        token_bundle = await self._get_token()
+        if token_bundle is None:
+            return
+
+        api, token = token_bundle
         try:
-            await client.delete_user(username, token=token)
+            await api.remove_user(username=username, token=token)
         except Exception as exc:
             msg = f"failed to delete Marzban user {username}"
             raise MarzbanServiceError(msg) from exc
+
+    async def close(self) -> None:
+        """Close underlying Marzban API client resources."""
+        if self._api is not None:
+            with suppress(Exception):
+                await self._api.close()
+
+        self._api = None
+        self._token_cache = None
+        self._fingerprint = None

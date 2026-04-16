@@ -7,6 +7,7 @@ from helios_backend.bot.callbacks import (
     CLEAR_PROMO_CALLBACK,
     OPEN_BUY_CALLBACK,
     SHOW_SUPPORT_CALLBACK,
+    CheckPaymentCallback,
 )
 from helios_backend.bot.keyboards import (
     build_account_keyboard,
@@ -120,7 +121,10 @@ def test_build_account_keyboard_contains_copy_button() -> None:
 
 def test_build_checkout_keyboard_contains_support_and_back() -> None:
     """Keep support and back actions near checkout URL button."""
-    keyboard = build_checkout_keyboard("https://example.com/checkout")
+    keyboard = build_checkout_keyboard(
+        "https://example.com/checkout",
+        payment_id="payment-1",
+    )
 
     callback_values = [
         button.callback_data
@@ -130,3 +134,4 @@ def test_build_checkout_keyboard_contains_support_and_back() -> None:
     ]
     assert SHOW_SUPPORT_CALLBACK in callback_values
     assert OPEN_BUY_CALLBACK in callback_values
+    assert CheckPaymentCallback(payment_id="payment-1").pack() in callback_values

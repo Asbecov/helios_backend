@@ -199,7 +199,7 @@ async def process_buy_plan_selection(
         chat_id=callback.message.chat.id,
         text=(f"{plan_label}\n\n💳 Перейти к оплате (Банковская карта RUB)"),
         route="buy",
-        reply_markup=build_checkout_keyboard(checkout_url),
+        reply_markup=build_checkout_keyboard(checkout_url, payment_id=str(payment.id)),
     )
     await callback.answer("Ссылка на оплату отправлена")
     return True, checkout_url

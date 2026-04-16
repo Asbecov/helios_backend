@@ -71,3 +71,15 @@ class PaymentDao:
             .select_related("user", "plan", "code")
             .first()
         )
+
+    async def get_by_id_and_user(
+        self,
+        payment_id: UUID,
+        user_id: UUID,
+    ) -> Payment | None:
+        """Handle get by id restricted to owner user."""
+        return (
+            await Payment.filter(id=payment_id, user_id=user_id)
+            .select_related("user", "plan", "code")
+            .first()
+        )

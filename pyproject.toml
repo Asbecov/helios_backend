@@ -30,7 +30,7 @@ dependencies = [
   "taskiq-redis >=1.1.2,<2",
     "pyjwt >=2.10.1,<3",
     "httpx >=0.28.1,<1",
-    "marzpy >=0.0.5,<1",
+    "marzban >=0,<1",
   "pyzmq >=27.1.0,<28",
 ]
 
@@ -166,9 +166,6 @@ line-length = 88
 	"PLC0415", # Import outside toplevel
   "ANN001",  # Missing argument annotation in tests
   "ANN202",  # Missing return annotations in tests
-]
-"helios_backend/services/marzban/service.py" = [
-  "PLC0415", # Local optional import for marzpy
 ]
 "helios_backend/services/auth/jwt.py" = [
   "S105",    # False positive on token type literal

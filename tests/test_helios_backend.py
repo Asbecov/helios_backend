@@ -505,6 +505,126 @@ async def test_zero_amount_payment_is_auto_paid_without_provider_call(
     assert payload["checkout_url"] == ""
 
 
+async def test_paid_webhook_extends_marzban_for_active_user(
+    client: AsyncClient,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Extend existing Marzban user expiry when paid webhook updates active balance."""
+    user = await User.create(
+        telegram_id=8899,
+        username="u8899",
+        marzban_username="u8899_mz",
+    )
+    now = datetime.now(tz=UTC)
+    initial_expire = now + timedelta(days=5)
+    await Balance.create(
+        user=user,
+        remaining_frozen_days=0,
+        is_frozen=False,
+        expires_at=initial_expire,
+        activated_at=now,
+    )
+    plan = await SubscriptionPlan.create(
+        name="WebhookExtendPlan",
+        duration_days=30,
+        price=Decimal("15.00"),
+        tags={},
+    )
+
+    calls: list[tuple[str, datetime]] = []
+
+    async def fake_extend_user(
+        self: object,
+        username: str,
+        expires_at: datetime,
+    ) -> None:
+        _ = self
+        calls.append((username, expires_at))
+
+    monkeypatch.setattr(MarzbanService, "extend_user", fake_extend_user)
+
+    create_response = await client.post(
+        "/api/payments/create",
+        json={"plan_id": str(plan.id), "provider": "dummy", "code": None},
+        headers={
+            "Authorization": f"Bearer {JwtService().create_access_token(user.id)}"
+        },
+    )
+    assert create_response.status_code == status.HTTP_200_OK
+
+    webhook_response = await client.post(
+        "/api/payments/webhook/dummy",
+        json={"external_id": create_response.json()["external_id"], "status": "paid"},
+    )
+    assert webhook_response.status_code == status.HTTP_200_OK
+    assert webhook_response.json()["status"] == "paid"
+
+    assert len(calls) == 1
+    synced_username, synced_expires_at = calls[0]
+    assert synced_username == "u8899_mz"
+    assert synced_expires_at > initial_expire
+
+
+async def test_paid_webhook_keeps_success_when_marzban_sync_fails(
+    client: AsyncClient,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Keep webhook paid response successful when Marzban sync raises an error."""
+    user = await User.create(
+        telegram_id=8900,
+        username="u8900",
+        marzban_username="u8900_mz",
+    )
+    now = datetime.now(tz=UTC)
+    initial_expire = now + timedelta(days=3)
+    await Balance.create(
+        user=user,
+        remaining_frozen_days=0,
+        is_frozen=False,
+        expires_at=initial_expire,
+        activated_at=now,
+    )
+    plan = await SubscriptionPlan.create(
+        name="WebhookFailSafePlan",
+        duration_days=30,
+        price=Decimal("15.00"),
+        tags={},
+    )
+
+    async def fake_extend_user(
+        self: object,
+        username: str,
+        expires_at: datetime,
+    ) -> None:
+        _ = self
+        _ = username
+        _ = expires_at
+        raise MarzbanServiceError("temporary marzban outage")
+
+    monkeypatch.setattr(MarzbanService, "extend_user", fake_extend_user)
+
+    create_response = await client.post(
+        "/api/payments/create",
+        json={"plan_id": str(plan.id), "provider": "dummy", "code": None},
+        headers={
+            "Authorization": f"Bearer {JwtService().create_access_token(user.id)}"
+        },
+    )
+    assert create_response.status_code == status.HTTP_200_OK
+
+    webhook_response = await client.post(
+        "/api/payments/webhook/dummy",
+        json={"external_id": create_response.json()["external_id"], "status": "paid"},
+    )
+    assert webhook_response.status_code == status.HTTP_200_OK
+    assert webhook_response.json()["status"] == "paid"
+
+    updated_balance = await Balance.filter(user=user).first()
+    assert updated_balance is not None
+    assert updated_balance.expires_at is not None
+    assert updated_balance.expires_at > initial_expire
+
+
 async def test_registration_creates_base_pending_subscription() -> None:
     """Create initial frozen base balance and referral code on registration."""
     user = await UserService().get_or_create_telegram_user(

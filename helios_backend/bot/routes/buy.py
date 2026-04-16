@@ -1,5 +1,7 @@
 """Buy command and callbacks."""
 
+from uuid import UUID
+
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -11,6 +13,7 @@ from helios_backend.bot.callbacks import (
     OPEN_BUY_CALLBACK,
     OPEN_CONNECT_CALLBACK,
     BuyPlanCallback,
+    CheckPaymentCallback,
 )
 from helios_backend.bot.common import (
     delete_callback_message,
@@ -20,11 +23,38 @@ from helios_backend.bot.common import (
     send_buy_flow,
     send_route_message,
 )
+from helios_backend.bot.common.text import format_date_label
 from helios_backend.bot.keyboards import BUY_BUTTON_TEXT, build_promo_input_keyboard
-from helios_backend.bot.services import get_code_service
+from helios_backend.bot.services import (
+    get_balance_service,
+    get_code_service,
+    get_payment_service,
+)
 from helios_backend.bot.states import BuyPromoState
+from helios_backend.db.models.vpn.payment import PaymentStatus
 
 router = Router(name="subscription-bot-buy")
+
+
+def _build_paid_payment_status_text(
+    status: dict[str, int | bool | str | None] | None,
+) -> str:
+    """Build payment success summary with current subscription term."""
+    if status is None:
+        return "✅ Оплата прошла успешно."
+
+    active_expires_at = status.get("active_expires_at")
+    if status.get("is_frozen") is False and isinstance(active_expires_at, str):
+        return (
+            "✅ Оплата прошла успешно.\n\n"
+            f"📅 Подписка активна до {format_date_label(active_expires_at)}"
+        )
+
+    remaining_frozen_days = status.get("remaining_frozen_days")
+    if isinstance(remaining_frozen_days, int) and remaining_frozen_days > 0:
+        return f"✅ Оплата прошла успешно.\n\n⏸ Доступно дней: {remaining_frozen_days}"
+
+    return "✅ Оплата прошла успешно."
 
 
 @router.message(Command("buy"))
@@ -182,3 +212,45 @@ async def buy_plan_callback(
         callback_plan_id=callback_data.plan_id,
         state=state,
     )
+
+
+@router.callback_query(CheckPaymentCallback.filter())
+async def check_payment_callback(
+    callback: CallbackQuery,
+    callback_data: CheckPaymentCallback,
+) -> None:
+    """Check payment status from checkout message and notify only when paid."""
+    user = await resolve_user_from_callback(callback)
+    if user is None:
+        return
+
+    try:
+        payment_id = UUID(callback_data.payment_id)
+    except ValueError:
+        await callback.answer("❌ Некорректный идентификатор платежа.", show_alert=True)
+        return
+
+    payment_service = get_payment_service()
+    payment = await payment_service.get_user_payment(
+        payment_id=payment_id,
+        user_id=user.id,
+    )
+    if payment is None:
+        await callback.answer("❌ Платеж не найден.", show_alert=True)
+        return
+
+    if payment.status is not PaymentStatus.PAID:
+        await callback.answer()
+        return
+
+    if callback.message is not None and hasattr(callback.message, "chat"):
+        balance_service = get_balance_service()
+        status_payload = await balance_service.get_status(user)
+        await send_route_message(
+            bot=callback.bot,
+            chat_id=callback.message.chat.id,
+            text=_build_paid_payment_status_text(status_payload),
+            route="buy",
+        )
+
+    await callback.answer("Оплата подтверждена")

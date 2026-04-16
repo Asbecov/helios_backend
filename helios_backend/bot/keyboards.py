@@ -17,6 +17,7 @@ from helios_backend.bot.callbacks import (
     OPEN_BUY_CALLBACK,
     SHOW_SUPPORT_CALLBACK,
     BuyPlanCallback,
+    CheckPaymentCallback,
 )
 
 ACCOUNT_BUTTON_TEXT = "💳 Мой аккаунт, подписка"
@@ -107,11 +108,19 @@ def build_plans_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def build_checkout_keyboard(url: str) -> InlineKeyboardMarkup:
+def build_checkout_keyboard(url: str, payment_id: str) -> InlineKeyboardMarkup:
     """Build checkout keyboard with payment and support actions."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="Открыть страницу оплаты", url=url)],
+            [
+                InlineKeyboardButton(
+                    text="🔃 Проверить оплату",
+                    callback_data=CheckPaymentCallback(
+                        payment_id=payment_id,
+                    ).pack(),
+                )
+            ],
             [
                 InlineKeyboardButton(
                     text=SUPPORT_BUTTON_TEXT,

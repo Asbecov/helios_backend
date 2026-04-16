@@ -13,3 +13,9 @@ class BuyPlanCallback(CallbackData, prefix="buy"):
     """Callback payload for selecting a subscription plan to buy."""
 
     plan_id: str
+
+
+class CheckPaymentCallback(CallbackData, prefix="check_payment"):
+    """Callback payload for checking payment status in checkout message."""
+
+    payment_id: str

@@ -1,3 +1,5 @@
+import logging
+from datetime import datetime
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -10,12 +12,15 @@ from helios_backend.db.models.vpn.payment import Payment, PaymentStatus
 from helios_backend.db.models.vpn.user import User
 from helios_backend.services.balance.service import BalanceService
 from helios_backend.services.codes.service import CodeService
+from helios_backend.services.marzban.service import MarzbanService, MarzbanServiceError
 from helios_backend.services.payments.base import BasePaymentProvider
 from helios_backend.services.payments.dummy_provider import DummyProvider
 from helios_backend.services.payments.yookassa_provider import YookassaProvider
 from helios_backend.services.plans.service import PlanService
 from helios_backend.services.users.service import UserService
 from helios_backend.settings import settings
+
+logger = logging.getLogger(__name__)
 
 
 class PaymentService:
@@ -28,6 +33,7 @@ class PaymentService:
         code_service: CodeService | None = None,
         user_service: UserService | None = None,
         balance_service: BalanceService | None = None,
+        marzban_service: MarzbanService | None = None,
     ) -> None:
         """Initialize payment service."""
         self._payment_dao = payment_dao or PaymentDao()
@@ -35,6 +41,7 @@ class PaymentService:
         self._code_service = code_service or CodeService()
         self._user_service = user_service or UserService()
         self._balance_service = balance_service or BalanceService()
+        self._marzban_service = marzban_service or MarzbanService()
         self._providers: dict[str, BasePaymentProvider] = {
             DummyProvider.name: DummyProvider()
         }
@@ -142,8 +149,14 @@ class PaymentService:
         await self._finalize_paid_payment(payment)
         return payment
 
+    async def get_user_payment(self, payment_id: UUID, user_id: UUID) -> Payment | None:
+        """Return payment by id only when it belongs to the given user."""
+        return await self._payment_dao.get_by_id_and_user(payment_id, user_id)
+
     async def _finalize_paid_payment(self, payment: Payment) -> None:
         """Handle finalize paid payment."""
+        marzban_sync_payload: tuple[str, datetime] | None = None
+
         async with in_transaction():
             # Compare-and-set ensures only one concurrent callback
             # finalizes side effects.
@@ -158,9 +171,35 @@ class PaymentService:
                 msg = "payment relation data is incomplete"
                 raise RuntimeError(msg)
 
-            await self._balance_service.apply_plan(payment.user, payment.plan)
+            updated_balance = await self._balance_service.apply_plan(
+                payment.user,
+                payment.plan,
+            )
+            marzban_username = payment.user.marzban_username
+            if (
+                isinstance(marzban_username, str)
+                and marzban_username
+                and updated_balance.is_frozen is False
+                and updated_balance.expires_at is not None
+            ):
+                marzban_sync_payload = (marzban_username, updated_balance.expires_at)
+
             await self._code_service.consume(payment.code, user_id=payment.user.id)
             await self._apply_referral_reward(payment)
+
+        if marzban_sync_payload is None:
+            return
+
+        marzban_username, expires_at = marzban_sync_payload
+        try:
+            await self._marzban_service.extend_user(
+                username=marzban_username,
+                expires_at=expires_at,
+            )
+        except MarzbanServiceError:
+            logger.exception(
+                "Failed to sync Marzban expiry after successful payment",
+            )
 
     async def _apply_referral_reward(self, payment: Payment) -> None:
         """Handle apply referral reward."""
