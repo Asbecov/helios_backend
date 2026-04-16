@@ -7,7 +7,10 @@
 }
 
 {$SUBSCRIPTION_DOMAIN} {
-  reverse_proxy {$GRPC_ROUTE}* marzban:{$VLESS_PORT}
+  reverse_proxy {$GRPC_ROUTE}* marzban:{$VLESS_PORT} {
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+  }
 
   reverse_proxy unix//var/lib/marzban/marzban.socket
 }
