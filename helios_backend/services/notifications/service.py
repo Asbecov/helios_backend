@@ -48,21 +48,21 @@ class TelegramNotifierService:
                 continue
             await self.notify_user(
                 balance.user.telegram_id,
-                "Your VPN subscription expires in 3 days.",
+                "😥 Напоминаем: подписка истекает через 3 дня!",
             )
         for balance in expiring_1d:
             if balance.user is None:
                 continue
             await self.notify_user(
                 balance.user.telegram_id,
-                "Your VPN subscription expires in 1 day.",
+                "😥 Напоминаем: подписка истекает через 1 день!",
             )
         for balance in expired:
             if balance.user is None:
                 continue
             await self.notify_user(
                 balance.user.telegram_id,
-                "Your VPN subscription has expired.",
+                "❗ Ваша подписка истекла.",
             )
 
         return {
@@ -81,8 +81,8 @@ class TelegramNotifierService:
             await self.notify_user(
                 balance.user.telegram_id,
                 (
-                    "You have a subscription with frozen days available. "
-                    "Open the app and activate your subscription to start using it."
+                    "👋 У вас есть неактивный баланс с оставшимися днями. "  # noqa: RUF001
+                    "Нажмите 🚀 Подключиться чтобы активировать баланс и начать пользоваться сервисом!"  # noqa: E501
                 ),
             )
 
