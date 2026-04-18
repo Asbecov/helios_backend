@@ -1,39 +1,67 @@
 # Helios Backend
 
-Production-ready FastAPI backend for Telegram Mini App VPN subscription management.
+Backend-платформа для VPN-сервиса с Telegram-ботом, REST API, платежами,
+админкой и интеграцией с Marzban.
 
-Includes an internal FastAdmin dashboard at `/admin`.
+## Что входит в проект
 
-Also includes a Telegram bot (aiogram 3) for account and subscription actions.
+- FastAPI API (JWT auth, тарифы, подписки, платежи, пользователи)
+- Telegram-бот на aiogram 3
+- FastAdmin панель по адресу `/admin`
+- PostgreSQL + Tortoise ORM
+- Redis + Taskiq (worker/scheduler)
+- Интеграция с Marzban
+- Поддержка YooKassa (при наличии ключей) и dummy-провайдера для тестов
 
-## Stack
+## Технологии
 
 - Python 3.12
 - FastAPI
-- PostgreSQL + Tortoise ORM
-- Redis
-- Taskiq (Redis broker)
-- Gunicorn + Uvicorn workers
-- JWT auth
+- aiogram 3
+- PostgreSQL 18
+- Redis 8
+- Taskiq
+- Gunicorn/Uvicorn
+- Aerich (миграции)
 
-## Architecture
+## API
 
-- API controllers: thin handlers only
-- Services: business rules
-- DAO: all DB access
-- Models: Tortoise entities
+Базовый префикс: `/api`
 
-Modules:
-- auth
-- users
-- plans
-- subscriptions
-- payments
-- codes
-- marzban
-- notifications
+Эндпоинты:
 
-Telegram bot commands:
+- POST `/api/auth/telegram`
+- GET `/api/plans`
+- GET `/api/plans/base`
+- GET `/api/subscription`
+- GET `/api/subscription/status`
+- POST `/api/subscription/activate`
+- POST `/api/subscription/freeze`
+- GET `/api/subscription/url`
+- POST `/api/payments/create`
+- POST `/api/payments/webhook/{provider}`
+- GET `/api/users/me`
+- DELETE `/api/users/me`
+- GET `/api/users/me/referral-code`
+- GET `/api/users/me/referral-usages`
+- GET `/api/health`
+
+Документация OpenAPI:
+
+- `/api/docs`
+- `/api/redoc`
+
+Аутентификация:
+
+- JWT нужен для всех пользовательских маршрутов, кроме
+	`/api/auth/telegram` и `/api/health`.
+
+## Telegram-бот
+
+Основные команды:
+
+- `/start`
+- `/help`
 - `/my`
 - `/buy`
 - `/connect`
@@ -41,160 +69,160 @@ Telegram bot commands:
 - `/terms`
 - `/privacy`
 
-## API
+`/terms` и `/privacy` возвращают ссылки из переменных окружения:
 
-Base path: `/api`
+- `HELIOS_BACKEND_TELEGRAM_TERMS_URL`
+- `HELIOS_BACKEND_TELEGRAM_PRIVACY_URL`
 
-- POST `/auth/telegram`
-- GET `/plans`
-- GET `/plans/base`
-- GET `/subscription`
-- GET `/subscription/status`
-- POST `/subscription/activate`
-- POST `/subscription/freeze`
-- GET `/subscription/url`
-- POST `/payments/create`
-- POST `/payments/webhook/{provider}`
-- GET `/me`
-- DELETE `/me`
-- GET `/me/referral-code`
-- GET `/me/referral-usages`
-- GET `/health`
+## Локальный запуск
 
-All user-facing endpoints require JWT except `/auth/telegram` and `/health`.
-
-Payment creation uses `plan_id` from `/plans`.
-
-`GET /subscription/url` requires an already active subscription balance.
-Activate balance first with `POST /subscription/activate`.
-
-Admin panel bootstrap:
-- Configure all runtime variables in `.env` (see `.env.example`).
-- Set `HELIOS_BACKEND_ADMIN_PANEL_USERNAME` and `HELIOS_BACKEND_ADMIN_PANEL_PASSWORD` for first admin account bootstrap.
-- Set `HELIOS_BACKEND_ADMIN_SECRET_KEY` for admin session signing.
-
-## Local Run
+### 1. Установка зависимостей
 
 ```bash
 uv sync --locked
+```
+
+### 2. Настройка окружения
+
+Создайте `.env` на основе `.env.example`.
+
+Linux/macOS:
+
+```bash
 cp .env.example .env
-aerich upgrade
+```
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Минимально проверьте значения:
+
+- `HELIOS_BACKEND_DB_PASS`
+- `HELIOS_BACKEND_JWT_SECRET`
+- `HELIOS_BACKEND_TELEGRAM_BOT_TOKEN` (если запускаете бота)
+
+### 3. Миграции
+
+```bash
+uv run aerich upgrade
+```
+
+### 4. Запуск сервисов (в отдельных терминалах)
+
+API:
+
+```bash
 uv run -m helios_backend
+```
+
+Worker:
+
+```bash
 uv run taskiq worker helios_backend.tkq:broker
+```
+
+Scheduler:
+
+```bash
 uv run taskiq scheduler helios_backend.tkq:scheduler
+```
+
+Telegram-бот:
+
+```bash
 uv run -m helios_backend.bot
 ```
 
-Bot-related env vars:
-- `HELIOS_BACKEND_TELEGRAM_BOT_TOKEN`
-- `HELIOS_BACKEND_TELEGRAM_TERMS_URL`
-- `HELIOS_BACKEND_TELEGRAM_PRIVACY_URL`
-- `HELIOS_BACKEND_TELEGRAM_DEFAULT_PAYMENT_PROVIDER`
-- `HELIOS_BACKEND_TELEGRAM_SUPPORT_CONTACTS`
-- `HELIOS_BACKEND_TELEGRAM_SUPPORT_URL`
-- `HELIOS_BACKEND_TELEGRAM_HELP_IMAGE_URL`
-- `HELIOS_BACKEND_TELEGRAM_MY_IMAGE_URL`
-- `HELIOS_BACKEND_TELEGRAM_BUY_IMAGE_URL`
-- `HELIOS_BACKEND_TELEGRAM_CONNECT_IMAGE_URL`
-- `HELIOS_BACKEND_TELEGRAM_SUPPORT_IMAGE_URL`
-- `HELIOS_BACKEND_TELEGRAM_TERMS_IMAGE_URL`
-- `HELIOS_BACKEND_TELEGRAM_PRIVACY_IMAGE_URL`
-
 ## Docker
 
-```bash
-docker-compose up --build
-```
-
-Dev mode with live reload:
+### Базовый запуск
 
 ```bash
-docker-compose -f docker-compose.yml -f deploy/docker-compose.dev.yml --project-directory . up --build
+docker compose up --build
 ```
 
-Admin panel URL: `http://localhost:8000/admin` (sign-in page is `http://localhost:8000/admin/login`).
+Поднимутся: API, worker, scheduler, bot, db, redis, migrator.
 
-## Production on one domain (subdomains)
-
-This repository includes a production override and edge proxy config for routing:
-
-- `api.example.com` -> Helios API (`api:8000`)
-- `sub.example.com` -> Marzban subscription host (`HELIOS_BACKEND_MARZBAN_BASE_URL`)
-- `app.example.com` -> website service (`site`)
-
-Files:
-
-- `deploy/docker-compose.prod.yml`
-- `deploy/caddy/Caddyfile`
-- `deploy/site/index.html` (placeholder website)
-
-### 1. Prepare DNS
-
-Point `api`, `sub`, and `app` subdomains to your public IP.
-
-### 2. Prepare environment
-
-Copy `.env.example` to `.env` and set production values:
-
-- `HELIOS_BACKEND_ENVIRONMENT=production`
-- `HELIOS_BACKEND_RELOAD=False`
-- `HELIOS_BACKEND_RATE_LIMIT_TRUST_FORWARDED_IP=True`
-- `CADDY_EMAIL`
-- `API_DOMAIN`
-- `SUBSCRIPTION_DOMAIN`
-- `SITE_DOMAIN`
-- `HELIOS_BACKEND_MARZBAN_BASE_URL`
-
-For Marzban integration:
-
-- Keep `HELIOS_BACKEND_MARZBAN_BASE_URL` on private/internal Marzban API endpoint.
-- Keep public subscription host on `SUBSCRIPTION_DOMAIN`.
-
-### 2.1 Caddy-only certificates for Marzban (no Certbot in Marzban)
-
-If Marzban is installed separately (for example via `marzban.sh` in `/opt/marzban`),
-leave TLS termination only on Caddy and run Marzban behind it.
-
-1. Update `/opt/marzban/.env`:
-
-```env
-DEBUG=True
-UVICORN_SSL_CERTFILE=
-UVICORN_SSL_KEYFILE=
-XRAY_SUBSCRIPTION_URL_PREFIX=https://sub.example.com
-```
-
-2. Restart Marzban:
+### Dev-режим (live reload + проброс портов)
 
 ```bash
-cd /opt/marzban
-docker compose up -d
+docker compose -f docker-compose.yml -f deploy/docker-compose.dev.yml up --build
 ```
 
-3. Set `HELIOS_BACKEND_MARZBAN_BASE_URL` in Helios `.env` to:
-
-```env
-HELIOS_BACKEND_MARZBAN_BASE_URL=http://host.docker.internal:8000
-```
-
-This works with `marzban.sh` default host-network mode.
-
-4. Start Helios production stack (with Caddy):
+### Production-оверлей (Caddy + static)
 
 ```bash
 docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build
 ```
 
-In this setup, certificates for `api`, `sub`, and `app` domains are issued by Caddy.
+В production-режиме Caddy проксирует:
 
-### 3. Run production stack
+- `${API_DOMAIN}` -> `api:8000`
+- `${SITE_DOMAIN}` -> `static:80`
+
+## Админка
+
+- URL: `/admin`
+- Логин-страница: `/admin/login`
+
+Для bootstrap-аккаунта задайте в `.env`:
+
+- `HELIOS_BACKEND_ADMIN_PANEL_USERNAME`
+- `HELIOS_BACKEND_ADMIN_PANEL_PASSWORD`
+- `HELIOS_BACKEND_ADMIN_SECRET_KEY`
+
+Пароль хранится в виде хеша; легаси plaintext-аккаунты автоматически
+мигрируют при успешном входе.
+
+## Ключевые переменные окружения
+
+Полный список см. в `.env.example`. На практике чаще всего нужны:
+
+- Core: `HELIOS_BACKEND_ENVIRONMENT`, `HELIOS_BACKEND_RELOAD`
+- DB: `HELIOS_BACKEND_DB_HOST`, `HELIOS_BACKEND_DB_PORT`,
+	`HELIOS_BACKEND_DB_USER`, `HELIOS_BACKEND_DB_PASS`,
+	`HELIOS_BACKEND_DB_BASE`
+- Redis: `HELIOS_BACKEND_REDIS_HOST`, `HELIOS_BACKEND_REDIS_PORT`
+- JWT: `HELIOS_BACKEND_JWT_SECRET`, `HELIOS_BACKEND_JWT_ALGORITHM`
+- Bot: `HELIOS_BACKEND_TELEGRAM_BOT_TOKEN`,
+	`HELIOS_BACKEND_TELEGRAM_DEFAULT_PAYMENT_PROVIDER`,
+	`HELIOS_BACKEND_TELEGRAM_SUPPORT_CONTACTS`,
+	`HELIOS_BACKEND_TELEGRAM_SUPPORT_URL`,
+	`HELIOS_BACKEND_TELEGRAM_TERMS_URL`,
+	`HELIOS_BACKEND_TELEGRAM_PRIVACY_URL`
+- Payments: `HELIOS_BACKEND_YOOKASSA_SHOP_ID`,
+	`HELIOS_BACKEND_YOOKASSA_API_KEY`,
+	`HELIOS_BACKEND_YOOKASSA_RETURN_URL`
+- Marzban: `HELIOS_BACKEND_MARZBAN_BASE_URL`,
+	`HELIOS_BACKEND_MARZBAN_ADMIN_USERNAME`,
+	`HELIOS_BACKEND_MARZBAN_ADMIN_PASSWORD`
+
+## Команды разработки
+
+Проверки качества:
 
 ```bash
-docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build
+uv run ruff check .
+uv run mypy .
+uv run pytest
 ```
 
-This command starts API, workers, bot, DB, Redis, migrator, website container, and Caddy with automatic TLS.
+Создание миграции:
 
-### 4. Website replacement
+```bash
+uv run aerich migrate --name <migration_name>
+```
 
-Replace `deploy/site` content with your real frontend build output.
+## Примечания по legal
+
+Бот не хранит длинный текст условий внутри обработчиков `/terms` и `/privacy`:
+эти команды выдают внешние ссылки из env-переменных.
+
+Рекомендуется публиковать актуальные версии документов на отдельной
+статической странице и указывать ссылки через:
+
+- `HELIOS_BACKEND_TELEGRAM_TERMS_URL`
+- `HELIOS_BACKEND_TELEGRAM_PRIVACY_URL`
