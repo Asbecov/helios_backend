@@ -15,6 +15,8 @@ def main() -> None:
             reload=settings.reload,
             log_level=settings.log_level.value.lower(),
             factory=True,
+            proxy_headers=True,
+            forwarded_allow_ips="*",
         )
     else:
         # We choose gunicorn only if reload
@@ -29,6 +31,7 @@ def main() -> None:
             accesslog="-",
             loglevel=settings.log_level.value.lower(),
             access_log_format='%r "-" %s "-" %Tf',
+            forwarded_allow_ips="*",
         ).run()
 
 
