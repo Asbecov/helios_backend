@@ -24,7 +24,7 @@ class UvicornWorker(BaseUvicornWorker):
         "http": "httptools",
         "lifespan": "on",
         "factory": True,
-        "proxy_headers": False,
+        "proxy_headers": True,
     }
 
 
