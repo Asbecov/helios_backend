@@ -641,6 +641,45 @@ async def test_registration_creates_base_pending_subscription() -> None:
     assert referral_code is not None
 
 
+async def test_marzban_username_falls_back_to_telegram_id_when_username_missing() -> (
+    None
+):
+    """Use telegram_id as Marzban stem when Telegram username is absent."""
+    user = await User.create(telegram_id=6667, username=None)
+
+    generated = await UserService().get_or_create_marzban_username(user)
+
+    assert generated == "u_6667"
+    updated_user = await User.filter(id=user.id).first()
+    assert updated_user is not None
+    assert updated_user.marzban_username == "u_6667"
+
+
+async def test_marzban_username_falls_back_to_telegram_id_when_username_blank() -> None:
+    """Use telegram_id as Marzban stem when Telegram username is blank."""
+    user = await User.create(telegram_id=6668, username="   ")
+
+    generated = await UserService().get_or_create_marzban_username(user)
+
+    assert generated == "u_6668"
+    updated_user = await User.filter(id=user.id).first()
+    assert updated_user is not None
+    assert updated_user.marzban_username == "u_6668"
+
+
+async def test_marzban_username_uses_telegram_username_when_present() -> None:
+    """Use Telegram username as Marzban stem when username is present."""
+    user = await User.create(telegram_id=6669, username="user-6669")
+
+    generated = await UserService().get_or_create_marzban_username(user)
+
+    assert generated == "u_user6669"
+    assert generated != "u_6669"
+    updated_user = await User.filter(id=user.id).first()
+    assert updated_user is not None
+    assert updated_user.marzban_username == "u_user6669"
+
+
 async def test_subscription_url_requires_active_balance(
     client: AsyncClient,
 ) -> None:
