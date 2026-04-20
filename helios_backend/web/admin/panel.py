@@ -25,8 +25,28 @@ logger = logging.getLogger(__name__)
 _bootstrap_state = {"done": False}
 
 
+class HeliosTortoiseModelAdmin(TortoiseModelAdmin):
+    """Allow relation lookup search fields for FastAdmin list validation."""
+
+    def get_fields_for_serialize(self) -> set[str]:
+        """Expose valid relation lookup search fields to FastAdmin validators."""
+        fields_for_serialize = super().get_fields_for_serialize()
+        model_fields = {
+            field.name for field in self.get_model_fields_with_widget_types()
+        }
+
+        for field in self.search_fields:
+            if "__" not in field:
+                continue
+            relation_root = field.split("__", 1)[0]
+            if relation_root in model_fields:
+                fields_for_serialize.add(field)
+
+        return fields_for_serialize
+
+
 @register(AdminAccount)
-class AdminAccountModelAdmin(TortoiseModelAdmin):
+class AdminAccountModelAdmin(HeliosTortoiseModelAdmin):
     """Admin users used to authenticate into FastAdmin."""
 
     menu_section = "Administration"
@@ -70,18 +90,18 @@ class AdminAccountModelAdmin(TortoiseModelAdmin):
 
 
 @register(User)
-class UserModelAdmin(TortoiseModelAdmin):
+class UserModelAdmin(HeliosTortoiseModelAdmin):
     """Admin interface for users that represent customers of the VPN service."""
 
     menu_section = "Users"
     list_display = ("id", "telegram_id", "username", "marzban_username", "created_at")
     list_display_links = ("id", "telegram_id")
-    search_fields = ("id", "username", "marzban_username", "telegram_id")
+    search_fields = ("id", "telegram_id", "username", "marzban_username")
     readonly_fields = ("created_at",)
 
 
 @register(Balance)
-class BalanceModelAdmin(TortoiseModelAdmin):
+class BalanceModelAdmin(HeliosTortoiseModelAdmin):
     """Admin interface for user balances."""
 
     menu_section = "Subscriptions"
@@ -97,13 +117,14 @@ class BalanceModelAdmin(TortoiseModelAdmin):
     list_display_links = ("id", "user")
     list_filter = ("is_frozen",)
     search_fields = (
+        "user__telegram_id",
         "user__username",
         "user__marzban_username",
     )
 
 
 @register(SubscriptionPlan)
-class SubscriptionPlanModelAdmin(TortoiseModelAdmin):
+class SubscriptionPlanModelAdmin(HeliosTortoiseModelAdmin):
     """Admin interface for subscription plans."""
 
     menu_section = "Subscriptions"
@@ -114,26 +135,23 @@ class SubscriptionPlanModelAdmin(TortoiseModelAdmin):
 
 
 @register(Payment)
-class PaymentModelAdmin(TortoiseModelAdmin):
+class PaymentModelAdmin(HeliosTortoiseModelAdmin):
     """Admin interface for payments."""
 
     menu_section = "Payments"
-    list_display = (
-        "id",
-        "user",
-        "plan",
-        "amount",
-        "status",
-        "provider",
-        "created_at",
-    )
+    list_display = ("id", "user", "plan", "amount", "status", "provider", "created_at")
     list_display_links = ("id", "external_id")
     list_filter = ("status", "provider")
-    search_fields = ("external_id", "user__username", "user__marzban_username")
+    search_fields = (
+        "external_id",
+        "user__telegram_id",
+        "user__username",
+        "user__marzban_username",
+    )
 
 
 @register(Code)
-class CodeModelAdmin(TortoiseModelAdmin):
+class CodeModelAdmin(HeliosTortoiseModelAdmin):
     """Admin interface for promotional codes."""
 
     menu_section = "Promotions"
@@ -149,31 +167,46 @@ class CodeModelAdmin(TortoiseModelAdmin):
     )
     list_display_links = ("id", "code")
     list_filter = ("type", "is_active")
-    search_fields = ("code", "owner__username", "owner__marzban_username")
+    search_fields = (
+        "code",
+        "owner__telegram_id",
+        "owner__username",
+        "owner__marzban_username",
+    )
 
 
 @register(CodeUsage)
-class CodeUsageModelAdmin(TortoiseModelAdmin):
+class CodeUsageModelAdmin(HeliosTortoiseModelAdmin):
     """Admin interface for tracking the usage of promotional codes."""
 
     menu_section = "Promotions"
     list_display = ("id", "user", "code", "created_at")
     list_display_links = ("id",)
-    search_fields = ("user__username", "user__marzban_username", "code__code")
+    search_fields = (
+        "user__telegram_id",
+        "user__username",
+        "user__marzban_username",
+        "code__code",
+    )
 
 
 @register(BasePlanGrant)
-class BasePlanGrantModelAdmin(TortoiseModelAdmin):
+class BasePlanGrantModelAdmin(HeliosTortoiseModelAdmin):
     """Admin interface for grants of base subscription plans."""
 
     menu_section = "Subscriptions"
     list_display = ("id", "telegram_id", "user", "granted_at")
     list_display_links = ("id", "telegram_id")
-    search_fields = ("telegram_id", "user__username", "user__marzban_username")
+    search_fields = (
+        "telegram_id",
+        "user__telegram_id",
+        "user__username",
+        "user__marzban_username",
+    )
 
 
 @register(RuntimeSetting)
-class RuntimeSettingModelAdmin(TortoiseModelAdmin):
+class RuntimeSettingModelAdmin(HeliosTortoiseModelAdmin):
     """Admin interface for runtime settings."""
 
     menu_section = "Configuration"
