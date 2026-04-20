@@ -87,8 +87,7 @@ class BalanceModelAdmin(TortoiseModelAdmin):
     menu_section = "Subscriptions"
     list_display = (
         "id",
-        "user_telegram_id",
-        "user_username",
+        "user",
         "remaining_frozen_days",
         "is_frozen",
         "frozen_at",
@@ -98,8 +97,8 @@ class BalanceModelAdmin(TortoiseModelAdmin):
     list_display_links = ("id", "user")
     list_filter = ("is_frozen",)
     search_fields = (
-        "user__telegram_id",
         "user__username",
+        "user__marzban_username",
     )
 
 
@@ -121,8 +120,7 @@ class PaymentModelAdmin(TortoiseModelAdmin):
     menu_section = "Payments"
     list_display = (
         "id",
-        "user_telegram_id",
-        "user_username",
+        "user",
         "plan",
         "amount",
         "status",
@@ -131,7 +129,7 @@ class PaymentModelAdmin(TortoiseModelAdmin):
     )
     list_display_links = ("id", "external_id")
     list_filter = ("status", "provider")
-    search_fields = ("external_id", "user__telegram_id", "user__username")
+    search_fields = ("external_id", "user__username", "user__marzban_username")
 
 
 @register(Code)
@@ -143,8 +141,7 @@ class CodeModelAdmin(TortoiseModelAdmin):
         "id",
         "code",
         "type",
-        "owner_telegram_id",
-        "owner_username",
+        "owner",
         "discount_percent",
         "reward_days_percent",
         "is_active",
@@ -152,7 +149,7 @@ class CodeModelAdmin(TortoiseModelAdmin):
     )
     list_display_links = ("id", "code")
     list_filter = ("type", "is_active")
-    search_fields = ("code", "owner__telegram_id", "owner__username")
+    search_fields = ("code", "owner__username", "owner__marzban_username")
 
 
 @register(CodeUsage)
@@ -160,9 +157,9 @@ class CodeUsageModelAdmin(TortoiseModelAdmin):
     """Admin interface for tracking the usage of promotional codes."""
 
     menu_section = "Promotions"
-    list_display = ("id", "user_telegram_id", "user_username", "code", "created_at")
+    list_display = ("id", "user", "code", "created_at")
     list_display_links = ("id",)
-    search_fields = ("user__telegram_id", "user__username", "code__code")
+    search_fields = ("user__username", "user__marzban_username", "code__code")
 
 
 @register(BasePlanGrant)
@@ -172,7 +169,7 @@ class BasePlanGrantModelAdmin(TortoiseModelAdmin):
     menu_section = "Subscriptions"
     list_display = ("id", "telegram_id", "user", "granted_at")
     list_display_links = ("id", "telegram_id")
-    search_fields = ("telegram_id", "user__username")
+    search_fields = ("telegram_id", "user__username", "user__marzban_username")
 
 
 @register(RuntimeSetting)
