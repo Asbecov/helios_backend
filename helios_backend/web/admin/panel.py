@@ -76,7 +76,7 @@ class UserModelAdmin(TortoiseModelAdmin):
     menu_section = "Users"
     list_display = ("id", "telegram_id", "username", "marzban_username", "created_at")
     list_display_links = ("id", "telegram_id")
-    search_fields = ("username", "marzban_username")
+    search_fields = ("id", "username", "marzban_username")
     readonly_fields = ("created_at",)
 
 
@@ -96,6 +96,7 @@ class BalanceModelAdmin(TortoiseModelAdmin):
     )
     list_display_links = ("id", "user")
     list_filter = ("is_frozen",)
+    search_fields = ("user__id", "user__username")
 
 
 @register(SubscriptionPlan)
@@ -117,7 +118,7 @@ class PaymentModelAdmin(TortoiseModelAdmin):
     list_display = ("id", "user", "plan", "amount", "status", "provider", "created_at")
     list_display_links = ("id", "external_id")
     list_filter = ("status", "provider")
-    search_fields = ("external_id",)
+    search_fields = ("external_id", "user__id", "user__username")
 
 
 @register(Code)
@@ -137,7 +138,7 @@ class CodeModelAdmin(TortoiseModelAdmin):
     )
     list_display_links = ("id", "code")
     list_filter = ("type", "is_active")
-    search_fields = ("code",)
+    search_fields = ("code", "owner__id", "owner__username")
 
 
 @register(CodeUsage)
@@ -147,6 +148,7 @@ class CodeUsageModelAdmin(TortoiseModelAdmin):
     menu_section = "Promotions"
     list_display = ("id", "user", "code", "created_at")
     list_display_links = ("id",)
+    search_fields = ("user__id", "user__username", "code__code")
 
 
 @register(BasePlanGrant)
@@ -156,6 +158,7 @@ class BasePlanGrantModelAdmin(TortoiseModelAdmin):
     menu_section = "Subscriptions"
     list_display = ("id", "telegram_id", "user", "granted_at")
     list_display_links = ("id", "telegram_id")
+    search_fields = ("telegram_id", "user__id", "user__username")
 
 
 @register(RuntimeSetting)
