@@ -15,6 +15,7 @@ from helios_backend.db.models.vpn.subscription_plan import SubscriptionPlan
 from helios_backend.db.models.vpn.user import User
 from helios_backend.services.admin.runtime_settings import RuntimeSettingService
 from helios_backend.services.auth.jwt import JwtService
+from helios_backend.services.balance.service import BalanceService
 from helios_backend.services.codes.service import CodeService
 from helios_backend.services.marzban.service import MarzbanService, MarzbanServiceError
 from helios_backend.services.users.service import UserService
@@ -198,6 +199,85 @@ async def test_balance_freeze_rounds_up_at_half_day() -> None:
 
     assert balance.is_frozen is True
     assert balance.remaining_frozen_days == 3
+
+
+async def test_balance_service_apply_plan_schedules_expiry_notification(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Schedule one-shot notification when plan extends an active balance."""
+    user = await User.create(telegram_id=9925, username="u9925")
+    now = datetime.now(tz=UTC)
+    await Balance.create(
+        user=user,
+        remaining_frozen_days=0,
+        is_frozen=False,
+        activated_at=now - timedelta(days=1),
+        expires_at=now + timedelta(days=2),
+    )
+    plan = await SubscriptionPlan.create(
+        name="Schedule Hook Plan",
+        duration_days=7,
+        price=Decimal("9.99"),
+        is_base=False,
+        tags={"scope": "test"},
+    )
+
+    scheduled: list[tuple[str, datetime, datetime | None]] = []
+
+    async def fake_schedule_expiry_notification(
+        balance_id: str,
+        expected_expires_at: datetime,
+        run_at: datetime | None = None,
+    ) -> str:
+        scheduled.append((balance_id, expected_expires_at, run_at))
+        return "scheduled"
+
+    monkeypatch.setattr(
+        "helios_backend.services.balance.service.schedule_expiry_notification",
+        fake_schedule_expiry_notification,
+    )
+
+    updated = await BalanceService().apply_plan(user, plan)
+
+    assert len(scheduled) == 1
+    assert scheduled[0][0] == str(updated.id)
+    assert updated.expires_at is not None
+    assert scheduled[0][1] == updated.expires_at
+    assert scheduled[0][2] is None
+
+
+async def test_balance_service_activate_schedules_expiry_notification(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Schedule one-shot notification when frozen balance is activated."""
+    user = await User.create(telegram_id=9926, username="u9926")
+    await Balance.create(
+        user=user,
+        remaining_frozen_days=2,
+        is_frozen=True,
+    )
+
+    scheduled: list[tuple[str, datetime, datetime | None]] = []
+
+    async def fake_schedule_expiry_notification(
+        balance_id: str,
+        expected_expires_at: datetime,
+        run_at: datetime | None = None,
+    ) -> str:
+        scheduled.append((balance_id, expected_expires_at, run_at))
+        return "scheduled"
+
+    monkeypatch.setattr(
+        "helios_backend.services.balance.service.schedule_expiry_notification",
+        fake_schedule_expiry_notification,
+    )
+
+    payload = await BalanceService().activate(user)
+
+    assert payload is not None
+    assert payload["is_frozen"] is False
+    assert len(scheduled) == 1
+    assert scheduled[0][2] is None
 
 
 async def test_subscription_url_endpoint(

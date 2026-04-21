@@ -111,6 +111,8 @@ def format_referral_block(referral_code: Code) -> str:
     return (
         "🎁 Ваш реферальный код:\n"
         f"<code>{referral_code.code}</code>\n\n"
+        "Делитесь им c друзьями и получайте бонусы \
+        за каждую покупку по вашему коду!\n\n"
         "Условия:\n"
         f"• Скидка приглашенному: {discount}%\n"
         f"• Ваш бонус: +{reward}% дней\n"

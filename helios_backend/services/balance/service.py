@@ -4,6 +4,7 @@ from helios_backend.db.dao.vpn.balance_dao import BalanceDao
 from helios_backend.db.models.vpn.balance import Balance
 from helios_backend.db.models.vpn.subscription_plan import SubscriptionPlan
 from helios_backend.db.models.vpn.user import User
+from helios_backend.tasks.notifications import schedule_expiry_notification
 
 
 class BalanceService:
@@ -24,6 +25,16 @@ class BalanceService:
         """Handle get balance by user."""
         return await self._balance_dao.get_by_user(user)
 
+    async def _schedule_expiry_notification_if_active(self, balance: Balance) -> None:
+        """Schedule one-shot expiry notification for active balances only."""
+        if balance.is_frozen or balance.expires_at is None:
+            return
+
+        await schedule_expiry_notification(
+            balance_id=str(balance.id),
+            expected_expires_at=balance.expires_at,
+        )
+
     async def apply_plan(self, user: User, plan: SubscriptionPlan) -> Balance:
         """Apply subscription plan days to balance, creating one if needed."""
         balance = await self._get_balance_by_user(user)
@@ -34,6 +45,7 @@ class BalanceService:
             )
 
         updated: Balance = await self._balance_dao.add_days(balance, plan.duration_days)
+        await self._schedule_expiry_notification_if_active(updated)
         return updated
 
     async def apply_bonus(self, user: User, bonus_days: int) -> Balance:
@@ -46,6 +58,7 @@ class BalanceService:
             )
 
         updated: Balance = await self._balance_dao.add_days(balance, bonus_days)
+        await self._schedule_expiry_notification_if_active(updated)
         return updated
 
     async def get_status(self, user: User) -> dict[str, int | bool | str | None] | None:
@@ -73,8 +86,11 @@ class BalanceService:
             return None
 
         now = datetime.now(tz=UTC)
+        was_frozen = balance.is_frozen
         if balance.is_frozen:
             await self._balance_dao.activate(balance, now=now)
+        if was_frozen:
+            await self._schedule_expiry_notification_if_active(balance)
 
         return {
             "remaining_frozen_days": balance.remaining_frozen_days,

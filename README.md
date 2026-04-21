@@ -127,7 +127,7 @@ uv run taskiq worker helios_backend.tkq:broker
 Scheduler:
 
 ```bash
-uv run taskiq scheduler helios_backend.tkq:scheduler
+uv run taskiq scheduler helios_backend.tkq:scheduler --update-interval 1 --loop-interval 1
 ```
 
 Telegram-бот:

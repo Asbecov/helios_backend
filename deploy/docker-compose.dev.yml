@@ -23,6 +23,10 @@ services:
       - taskiq
       - scheduler
       - helios_backend.tkq:scheduler
+      - --update-interval
+      - "1"
+      - --loop-interval
+      - "1"
 
   telegram-bot:
     volumes:
