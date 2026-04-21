@@ -89,6 +89,12 @@ def account_status_line(status: dict[str, int | bool | str | None] | None) -> st
     frozen_days = status.get("remaining_frozen_days")
 
     if is_frozen is False and isinstance(expires_at, str):
+        expires_at_date = datetime.fromisoformat(expires_at)
+        now = datetime.now()
+
+        if expires_at_date.timestamp() < now.timestamp():
+            return f"❌ Просроченная подписка до {format_date_label(expires_at)}"
+
         return f"✅ Активная подписка до {format_date_label(expires_at)}"
 
     days = frozen_days if isinstance(frozen_days, int) else 0
@@ -111,8 +117,7 @@ def format_referral_block(referral_code: Code) -> str:
     return (
         "🎁 Ваш реферальный код:\n"
         f"<code>{referral_code.code}</code>\n\n"
-        "Делитесь им c друзьями и получайте бонусы \
-        за каждую покупку по вашему коду!\n\n"
+        "Делитесь им c друзьями и получайте бонусы за каждую покупку по вашему коду!\n\n"  # noqa: E501
         "Условия:\n"
         f"• Скидка приглашенному: {discount}%\n"
         f"• Ваш бонус: +{reward}% дней\n"

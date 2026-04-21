@@ -21,57 +21,57 @@ from helios_backend.services.marzban.service import (
 )
 
 
-async def send_connect_flow(bot: Bot | None, chat_id: int, user: User) -> None:
+async def send_connect_flow(
+    bot: Bot | None,
+    chat_id: int,
+    user: User,
+) -> None:
     """Send connection flow only for active subscriptions."""
     balance_service = get_balance_service()
     user_service = get_user_service()
     marzban_service = get_marzban_service()
 
-    status = await balance_service.get_status(user)
-    if status is None:
+    async def no_sub(text: str = "🚫 У вас нет активной подписки.") -> None:
         await send_route_message(
             bot=bot,
             chat_id=chat_id,
-            text=(
-                "🚫 У вас нет активной подписки.\n"
-                "Сначала откройте раздел покупки, выберите тариф и оплатите его."
-            ),
+            text=text + "\nОткройте раздел покупки и оплатите тариф.",
             route="connect",
             reply_markup=build_subscribe_keyboard(),
         )
-        return
 
-    if status.get("is_frozen") is True:
-        frozen_days_raw = status.get("remaining_frozen_days")
-        frozen_days = frozen_days_raw if isinstance(frozen_days_raw, int) else 0
-        if frozen_days > 0:
+    status = await balance_service.get_status(user)
+
+    if status:
+        remaining_frozen_days = status.get("remaining_frozen_days")
+
+        if (
+            status.get("is_frozen")
+            and isinstance(remaining_frozen_days, int)
+            and remaining_frozen_days > 0
+        ):
             status = await balance_service.activate(user)
 
-    if status is None or status.get("is_frozen") is not False:
-        await send_route_message(
-            bot=bot,
-            chat_id=chat_id,
-            text=(
-                "🚫 У вас нет активной подписки.\n"
-                "Сначала откройте раздел покупки, выберите тариф и оплатите его."
-            ),
-            route="connect",
-            reply_markup=build_subscribe_keyboard(),
-        )
-        return
+    if not status or status.get("is_frozen"):
+        return await no_sub()
 
-    active_expires_at = status.get("active_expires_at")
-    if not isinstance(active_expires_at, str):
-        await send_route_message(
+    expires_raw = status.get("active_expires_at")
+
+    if not isinstance(expires_raw, str):
+        return await send_route_message(
             bot=bot,
             chat_id=chat_id,
             text="Не удалось определить срок действия подписки.",
             route="connect",
         )
-        return
+
+    expires_at = datetime.fromisoformat(expires_raw)
+    now = datetime.now()
+
+    if expires_at.timestamp() < now.timestamp():
+        return await no_sub("🚫 Ваша подписка истекла.")
 
     marzban_username = await user_service.get_or_create_marzban_username(user)
-    expires_at = datetime.fromisoformat(active_expires_at)
 
     try:
         try:
@@ -93,7 +93,7 @@ async def send_connect_flow(bot: Bot | None, chat_id: int, user: User) -> None:
             text=("Сервис подключения временно недоступен. Попробуйте немного позже."),
             route="connect",
         )
-        return
+        return None
 
     if not subscription_url:
         await send_route_message(
@@ -102,7 +102,7 @@ async def send_connect_flow(bot: Bot | None, chat_id: int, user: User) -> None:
             text="Не удалось сформировать ссылку подключения.",
             route="connect",
         )
-        return
+        return None
 
     await send_route_message(
         bot=bot,
@@ -117,3 +117,4 @@ async def send_connect_flow(bot: Bot | None, chat_id: int, user: User) -> None:
             url=subscription_url,
         ),
     )
+    return None
