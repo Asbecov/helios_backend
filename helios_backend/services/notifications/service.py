@@ -3,8 +3,10 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from aiogram.exceptions import TelegramAPIError
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from redis.asyncio import Redis
 
+from helios_backend.bot.callbacks import OPEN_BUY_CALLBACK
 from helios_backend.db.dao.vpn.balance_dao import BalanceDao
 from helios_backend.services.notifications.bot_client import get_shared_bot
 from helios_backend.settings import settings
@@ -21,6 +23,7 @@ class TelegramNotifierService:
     _EXPIRY_LOCK_TTL_SECONDS = 300
     _EXPIRY_SENT_TTL_SECONDS = 60 * 60 * 24 * 180
     _EXPIRY_REDIS_DB_PATH = "/1"
+    _BUY_BUTTON_TEXT = "💠 Купить подписку"
 
     def __init__(
         self,
@@ -65,7 +68,26 @@ class TelegramNotifierService:
         expires_ts = self._to_expiry_timestamp(expires_at)
         return f"notifications:subscription_expired:sent:{balance_id}:{expires_ts}"
 
-    async def notify_user(self, telegram_id: int, text: str) -> None:
+    @classmethod
+    def _build_buy_subscription_markup(cls) -> InlineKeyboardMarkup:
+        """Build CTA button that opens buy route in bot callback flow."""
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=cls._BUY_BUTTON_TEXT,
+                        callback_data=OPEN_BUY_CALLBACK,
+                    )
+                ]
+            ]
+        )
+
+    async def notify_user(
+        self,
+        telegram_id: int,
+        text: str,
+        reply_markup: InlineKeyboardMarkup | None = None,
+    ) -> None:
         """Handle notify user."""
         if not settings.telegram_bot_token:
             return
@@ -73,7 +95,11 @@ class TelegramNotifierService:
         if bot is None:
             return
         try:
-            await bot.send_message(chat_id=telegram_id, text=text)
+            await bot.send_message(
+                chat_id=telegram_id,
+                text=text,
+                reply_markup=reply_markup,
+            )
         except TelegramAPIError as exc:
             msg = f"telegram notification failed for chat_id={telegram_id}"
             raise RuntimeError(msg) from exc
@@ -92,6 +118,8 @@ class TelegramNotifierService:
         expiring_1d = await self._balance_dao.get_expiring_active_between(
             day1_start, day1_end
         )
+        expired = await self._balance_dao.get_expired_active_before(now)
+        buy_markup = self._build_buy_subscription_markup()
 
         for balance in expiring_3d:
             if balance.user is None:
@@ -101,6 +129,7 @@ class TelegramNotifierService:
                 "⚠️ Срочно! \n\n"
                 "Ваша подписка истекает через три дня.\n\n"
                 "Чтобы продолжить пользоваться сервисом, приобретите подписку.",
+                reply_markup=buy_markup,
             )
         for balance in expiring_1d:
             if balance.user is None:
@@ -110,12 +139,23 @@ class TelegramNotifierService:
                 "⚠️ Срочно! \n\n"
                 "Ваша подписка истекает завтра.\n\n"
                 "Чтобы продолжить пользоваться сервисом, приобретите подписку.",
+                reply_markup=buy_markup,
+            )
+        for balance in expired:
+            if balance.user is None:
+                continue
+            await self.notify_user(
+                balance.user.telegram_id,
+                "⚠️ Срочно! \n\n"
+                "Ваша подписка истекла.\n\n"
+                "Чтобы продолжить пользоваться сервисом, приобретите подписку.",
+                reply_markup=buy_markup,
             )
 
         return {
             "expiring_3d": len(expiring_3d),
             "expiring_1d": len(expiring_1d),
-            "expired": 0,
+            "expired": len(expired),
         }
 
     async def notify_subscription_expired_once(
@@ -203,6 +243,7 @@ class TelegramNotifierService:
                         "⚠️ Срочно! \n\n"
                         "Ваша подписка истекла.\n\n"
                         "Чтобы продолжить пользоваться сервисом, приобретите подписку.",
+                        reply_markup=self._build_buy_subscription_markup(),
                     )
                     await redis.set(
                         sent_key,
