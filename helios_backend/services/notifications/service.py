@@ -1,8 +1,9 @@
+import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from aiogram.exceptions import TelegramAPIError
+from aiogram.exceptions import TelegramAPIError, TelegramForbiddenError
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from redis.asyncio import Redis
 
@@ -15,6 +16,8 @@ ScheduleExpiryNotificationFn = Callable[
     [str, datetime, datetime | None],
     Awaitable[str | None],
 ]
+
+logger = logging.getLogger(__name__)
 
 
 class TelegramNotifierService:
@@ -87,19 +90,26 @@ class TelegramNotifierService:
         telegram_id: int,
         text: str,
         reply_markup: InlineKeyboardMarkup | None = None,
-    ) -> None:
+    ) -> bool:
         """Handle notify user."""
         if not settings.telegram_bot_token:
-            return
+            return False
         bot = await get_shared_bot()
         if bot is None:
-            return
+            return False
         try:
             await bot.send_message(
                 chat_id=telegram_id,
                 text=text,
                 reply_markup=reply_markup,
             )
+            return True
+        except TelegramForbiddenError:
+            logger.info(
+                "Skipping telegram notification for chat_id=%s: bot was blocked by the user",  # noqa: E501
+                telegram_id,
+            )
+            return False
         except TelegramAPIError as exc:
             msg = f"telegram notification failed for chat_id={telegram_id}"
             raise RuntimeError(msg) from exc
@@ -128,7 +138,8 @@ class TelegramNotifierService:
                 balance.user.telegram_id,
                 "⚠️ Срочно! \n\n"
                 "Ваша подписка истекает через три дня.\n\n"
-                "Чтобы продолжить пользоваться сервисом, приобретите подписку.",
+                "Чтобы продолжить пользоваться сервисом, приобретите подписку.\n"
+                "Все актуальные промокоды смотрите в нашем канале - @vpn_helios",  # noqa: RUF001
                 reply_markup=buy_markup,
             )
         for balance in expiring_1d:
@@ -138,7 +149,8 @@ class TelegramNotifierService:
                 balance.user.telegram_id,
                 "⚠️ Срочно! \n\n"
                 "Ваша подписка истекает завтра.\n\n"
-                "Чтобы продолжить пользоваться сервисом, приобретите подписку.",
+                "Чтобы продолжить пользоваться сервисом, приобретите подписку.\n"
+                "Все актуальные промокоды смотрите в нашем канале - @vpn_helios",  # noqa: RUF001
                 reply_markup=buy_markup,
             )
         for balance in expired:
@@ -148,7 +160,8 @@ class TelegramNotifierService:
                 balance.user.telegram_id,
                 "⚠️ Срочно! \n\n"
                 "Ваша подписка истекла.\n\n"
-                "Чтобы продолжить пользоваться сервисом, приобретите подписку.",
+                "Чтобы продолжить пользоваться сервисом, приобретите подписку.\n"
+                "Все актуальные промокоды смотрите в нашем канале - @vpn_helios",  # noqa: RUF001
                 reply_markup=buy_markup,
             )
 
@@ -238,19 +251,21 @@ class TelegramNotifierService:
                     )
                 )
                 if lock_acquired and not await redis.exists(sent_key):
-                    await self.notify_user(
+                    delivered = await self.notify_user(
                         telegram_id,
                         "⚠️ Срочно! \n\n"
                         "Ваша подписка истекла.\n\n"
-                        "Чтобы продолжить пользоваться сервисом, приобретите подписку.",
+                        "Чтобы продолжить пользоваться сервисом, приобретите подписку.\n"  # noqa: E501
+                        "Все актуальные промокоды смотрите в нашем канале - @vpn_helios",  # noqa: E501, RUF001
                         reply_markup=self._build_buy_subscription_markup(),
                     )
-                    await redis.set(
-                        sent_key,
-                        "1",
-                        ex=self._EXPIRY_SENT_TTL_SECONDS,
-                    )
-                    sent = True
+                    if delivered:
+                        await redis.set(
+                            sent_key,
+                            "1",
+                            ex=self._EXPIRY_SENT_TTL_SECONDS,
+                        )
+                        sent = True
         finally:
             if lock_acquired:
                 await redis.delete(lock_key)
