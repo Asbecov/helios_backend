@@ -32,9 +32,9 @@ services:
       - scheduler
       - helios_backend.tkq:scheduler
       - --update-interval
-      - "1"
+      - "30"
       - --loop-interval
-      - "1"
+      - "30"
 
   telegram-bot:
     <<: *main_app
