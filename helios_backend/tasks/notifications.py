@@ -5,7 +5,7 @@ from helios_backend.services.notifications.service import TelegramNotifierServic
 from helios_backend.tkq import broker, get_dynamic_schedule_source
 
 
-@broker.task(schedule=[{"cron": "0 */6 * * *"}])
+@broker.task(schedule=[{"cron": "30 17 * * *", "cron_offset": "Europe/Moscow"}])
 async def notify_subscription_events() -> dict[str, int]:
     """Periodic task for subscription expiration notifications."""
     notifier = TelegramNotifierService()
