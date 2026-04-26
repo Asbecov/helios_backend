@@ -1,6 +1,7 @@
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from uuid import UUID
 
 from aiogram.exceptions import TelegramAPIError, TelegramForbiddenError
@@ -10,6 +11,7 @@ from redis.asyncio import Redis
 from helios_backend.bot.callbacks import OPEN_BUY_CALLBACK
 from helios_backend.db.dao.vpn.balance_dao import BalanceDao
 from helios_backend.services.notifications.bot_client import get_shared_bot
+from helios_backend.services.plans.service import PlanService
 from helios_backend.settings import settings
 
 ScheduleExpiryNotificationFn = Callable[
@@ -31,14 +33,31 @@ class TelegramNotifierService:
     def __init__(
         self,
         balance_dao: BalanceDao | None = None,
+        plan_service: PlanService | None = None,
         redis_client: Redis | None = None,
         schedule_expiry_notification: ScheduleExpiryNotificationFn | None = None,
     ) -> None:
         """Initialize telegram notifier service."""
         self._balance_dao = balance_dao or BalanceDao()
+        self._plan_service = plan_service or PlanService()
         self._redis_client = redis_client
         self._redis_url = str(settings.redis_url.with_path(self._EXPIRY_REDIS_DB_PATH))
         self._schedule_expiry_notification = schedule_expiry_notification
+
+    async def _build_current_subscription_price_line(self) -> str:
+        """Build sell line with current paid subscription price when available."""
+        cheapest_plan = await self._plan_service.get_cheapest_option()
+        if cheapest_plan is None:
+            return "Чтобы продолжить пользоваться сервисом, приобретите подписку.\n"
+
+        formatted_price = str(
+            Decimal(str(cheapest_plan.price)).quantize(Decimal("0.01"))
+        )
+        return (
+            "Чтобы продолжить пользоваться сервисом, приобретите подписку.\n"
+            f"Сейчас стоимость подписки: от {formatted_price} ₽ / "
+            f"{cheapest_plan.duration_days} дн.\n"
+        )
 
     @staticmethod
     def _normalize_utc(value: datetime) -> datetime:
@@ -130,16 +149,19 @@ class TelegramNotifierService:
         )
         expired = await self._balance_dao.get_expired_active_before(now)
         buy_markup = self._build_buy_subscription_markup()
+        sell_line = await self._build_current_subscription_price_line()
 
         for balance in expiring_3d:
             if balance.user is None:
                 continue
             await self.notify_user(
                 balance.user.telegram_id,
-                "⚠️ Срочно! \n\n"
-                "Ваша подписка истекает через три дня.\n\n"
-                "Чтобы продолжить пользоваться сервисом, приобретите подписку.\n"
-                "Все актуальные промокоды смотрите в нашем канале - @vpn_helios",  # noqa: RUF001
+                (
+                    "⚠️ Срочно! \n\n"
+                    "Ваша подписка истекает через три дня.\n\n"
+                    f"{sell_line}"
+                    "Все актуальные промокоды смотрите в нашем канале - @vpn_helios"  # noqa: RUF001
+                ),
                 reply_markup=buy_markup,
             )
         for balance in expiring_1d:
@@ -147,10 +169,12 @@ class TelegramNotifierService:
                 continue
             await self.notify_user(
                 balance.user.telegram_id,
-                "⚠️ Срочно! \n\n"
-                "Ваша подписка истекает завтра.\n\n"
-                "Чтобы продолжить пользоваться сервисом, приобретите подписку.\n"
-                "Все актуальные промокоды смотрите в нашем канале - @vpn_helios",  # noqa: RUF001
+                (
+                    "⚠️ Срочно! \n\n"
+                    "Ваша подписка истекает завтра.\n\n"
+                    f"{sell_line}"
+                    "Все актуальные промокоды смотрите в нашем канале - @vpn_helios"  # noqa: RUF001
+                ),
                 reply_markup=buy_markup,
             )
         for balance in expired:
@@ -158,10 +182,12 @@ class TelegramNotifierService:
                 continue
             await self.notify_user(
                 balance.user.telegram_id,
-                "⚠️ Срочно! \n\n"
-                "Ваша подписка истекла.\n\n"
-                "Чтобы продолжить пользоваться сервисом, приобретите подписку.\n"
-                "Все актуальные промокоды смотрите в нашем канале - @vpn_helios",  # noqa: RUF001
+                (
+                    "⚠️ Срочно! \n\n"
+                    "Ваша подписка истекла.\n\n"
+                    f"{sell_line}"
+                    "Все актуальные промокоды смотрите в нашем канале - @vpn_helios"  # noqa: RUF001
+                ),
                 reply_markup=buy_markup,
             )
 
@@ -251,12 +277,16 @@ class TelegramNotifierService:
                     )
                 )
                 if lock_acquired and not await redis.exists(sent_key):
+                    sell_line = await self._build_current_subscription_price_line()
+
                     delivered = await self.notify_user(
                         telegram_id,
-                        "⚠️ Срочно! \n\n"
-                        "Ваша подписка истекла.\n\n"
-                        "Чтобы продолжить пользоваться сервисом, приобретите подписку.\n"  # noqa: E501
-                        "Все актуальные промокоды смотрите в нашем канале - @vpn_helios",  # noqa: E501, RUF001
+                        (
+                            "⚠️ Срочно! \n\n"
+                            "Ваша подписка истекла.\n\n"
+                            f"{sell_line}"
+                            "Все актуальные промокоды смотрите в нашем канале - @vpn_helios"  # noqa: E501, RUF001
+                        ),
                         reply_markup=self._build_buy_subscription_markup(),
                     )
                     if delivered:

@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 from aiogram.exceptions import TelegramAPIError, TelegramForbiddenError
 from aiogram.methods import SendMessage
@@ -9,6 +10,7 @@ from pytest import MonkeyPatch, raises
 from helios_backend.bot.callbacks import OPEN_BUY_CALLBACK
 from helios_backend.db.dao.vpn.balance_dao import BalanceDao
 from helios_backend.db.models.vpn.balance import Balance
+from helios_backend.db.models.vpn.subscription_plan import SubscriptionPlan
 from helios_backend.db.models.vpn.user import User
 from helios_backend.services.notifications.service import TelegramNotifierService
 from helios_backend.tasks.notifications import (
@@ -192,6 +194,54 @@ async def test_notify_expiring_subscriptions_notifies_expired_users(
     assert OPEN_BUY_CALLBACK in _callback_values(sent[0][1])
 
 
+async def test_notify_expiring_subscriptions_includes_current_price(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Include current paid subscription price in expiry warning message."""
+    now = datetime.now(tz=UTC)
+    user = await User.create(telegram_id=8134, username="u8134")
+
+    await Balance.create(
+        user=user,
+        is_frozen=False,
+        remaining_frozen_days=0,
+        activated_at=now - timedelta(days=1),
+        expires_at=now + timedelta(days=1, hours=2),
+    )
+    await SubscriptionPlan.create(
+        name="Monthly",
+        duration_days=30,
+        price=Decimal("299.00"),
+        is_base=False,
+    )
+
+    sent_texts: list[str] = []
+
+    async def fake_notify_user(
+        self: object,
+        telegram_id: int,
+        text: str,
+        reply_markup: InlineKeyboardMarkup | None = None,
+    ) -> bool:
+        _ = self
+        _ = telegram_id
+        _ = reply_markup
+        sent_texts.append(text)
+        return True
+
+    monkeypatch.setattr(TelegramNotifierService, "notify_user", fake_notify_user)
+
+    result = await TelegramNotifierService().notify_expiring_subscriptions()
+
+    assert result == {
+        "expiring_3d": 0,
+        "expiring_1d": 1,
+        "expired": 0,
+    }
+    assert len(sent_texts) == 1
+    assert "299.00 ₽ / 30" in sent_texts[0]
+
+
 async def test_notify_subscription_expired_once_sends_only_once(
     monkeypatch: MonkeyPatch,
 ) -> None:
@@ -278,6 +328,55 @@ async def test_notify_subscription_expired_once_skips_stale_schedule(
 
     assert result is False
     assert sent_to == []
+    await redis.aclose()
+
+
+async def test_notify_subscription_expired_once_includes_current_price(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Include current paid subscription price in one-shot expiry message."""
+    user = await User.create(telegram_id=8128, username="u8128")
+    expires_at = datetime.now(tz=UTC) - timedelta(minutes=1)
+    balance = await Balance.create(
+        user=user,
+        is_frozen=False,
+        remaining_frozen_days=0,
+        activated_at=expires_at - timedelta(days=1),
+        expires_at=expires_at,
+    )
+    await SubscriptionPlan.create(
+        name="Two weeks",
+        duration_days=14,
+        price=Decimal("149.00"),
+        is_base=False,
+    )
+
+    sent_texts: list[str] = []
+
+    async def fake_notify_user(
+        self: object,
+        telegram_id: int,
+        text: str,
+        reply_markup: object | None = None,
+    ) -> bool:
+        _ = self
+        _ = telegram_id
+        _ = reply_markup
+        sent_texts.append(text)
+        return True
+
+    monkeypatch.setattr(TelegramNotifierService, "notify_user", fake_notify_user)
+
+    redis = FakeRedis()
+    notifier = TelegramNotifierService(redis_client=redis)
+    result = await notifier.notify_subscription_expired_once(
+        balance_id=str(balance.id),
+        expected_expires_at=expires_at.isoformat(),
+    )
+
+    assert result is True
+    assert len(sent_texts) == 1
+    assert "149.00 ₽ / 14" in sent_texts[0]
     await redis.aclose()
 
 

@@ -1,5 +1,6 @@
 from contextlib import suppress
 from datetime import datetime
+from typing import ClassVar
 from urllib.parse import urlsplit, urlunsplit
 
 from marzban import MarzbanAPI, MarzbanTokenCache, ProxySettings, UserCreate, UserModify
@@ -44,9 +45,15 @@ def _normalize_marzban_base_url(base_url: str) -> str:
 class MarzbanService:
     """Client for Marzban API operations via marzban public API."""
 
-    _DEFAULT_PROXY_NAME = "vless"
-    _DEFAULT_INBOUND_NAME = "vless tls"
-    _DEFAULT_PROXY_SETTINGS = ProxySettings(flow="xtls-rprx-vision")
+    _DEFAULT_PROXY_NAME: ClassVar[str] = "vless"
+    _DEFAULT_INBOUND_NAMES: ClassVar[tuple[str, ...]] = (
+        "vless tls",
+        "vless reality",
+        "vless reality 443",
+    )
+    _DEFAULT_PROXY_SETTINGS: ClassVar[ProxySettings] = ProxySettings(
+        flow="xtls-rprx-vision"
+    )
 
     def __init__(self) -> None:
         """Initialize lazy Marzban API client and token cache."""
@@ -138,7 +145,7 @@ class MarzbanService:
         user = UserCreate(
             username=username,
             proxies={self._DEFAULT_PROXY_NAME: self._DEFAULT_PROXY_SETTINGS},
-            inbounds={self._DEFAULT_PROXY_NAME: [self._DEFAULT_INBOUND_NAME]},
+            inbounds={self._DEFAULT_PROXY_NAME: list(self._DEFAULT_INBOUND_NAMES)},
             expire=int(expires_at.timestamp()),
             data_limit=0,
             data_limit_reset_strategy="no_reset",

@@ -21,6 +21,19 @@ class PlanService:
             runtime_setting_service or RuntimeSettingService()
         )
 
+    async def get_cheapest_option(self) -> SubscriptionPlan | None:
+        """Gets the cheapest plan available."""
+        plans_sorted: list[SubscriptionPlan] = await self._plan_dao.get_all()
+        plans_sorted.sort(key=lambda plan: plan.price)
+
+        for plan in plans_sorted:
+            if plan.is_base or plan.price <= 0:
+                continue
+
+            return plan
+
+        return None
+
     async def get_plan_by_id(self, plan_id: UUID) -> SubscriptionPlan | None:
         """Returns a subscription plan by id, or None if it does not exist."""
         return await self._plan_dao.get_by_id(plan_id)
