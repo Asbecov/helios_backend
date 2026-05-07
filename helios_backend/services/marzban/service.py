@@ -50,6 +50,7 @@ class MarzbanService:
         "vless tls",
         "vless reality",
         "vless reality 443",
+        "vless reality 443 finland",
     )
     _DEFAULT_PROXY_SETTINGS: ClassVar[ProxySettings] = ProxySettings(
         flow="xtls-rprx-vision"
