@@ -28,6 +28,8 @@ _bootstrap_state = {"done": False}
 class HeliosTortoiseModelAdmin(TortoiseModelAdmin):
     """Allow relation lookup search fields for FastAdmin list validation."""
 
+    relation_sort_fields: dict[str, str] = {}
+
     def get_fields_for_serialize(self) -> set[str]:
         """Expose valid relation lookup search fields to FastAdmin validators."""
         fields_for_serialize = super().get_fields_for_serialize()
@@ -43,6 +45,31 @@ class HeliosTortoiseModelAdmin(TortoiseModelAdmin):
                 fields_for_serialize.add(field)
 
         return fields_for_serialize
+
+    def resolve_sort_by(self, sort_by: str) -> str:
+        """Ensure relation fields are mapped to sortable ORM expressions."""
+        resolved = super().resolve_sort_by(sort_by)
+        if not resolved:
+            return resolved
+
+        prefix = "-" if resolved.startswith("-") else ""
+        field_name = resolved.lstrip("-")
+
+        mapped_field = self.relation_sort_fields.get(field_name)
+        if mapped_field:
+            return f"{prefix}{mapped_field}"
+
+        if "__" in field_name:
+            return resolved
+
+        orm_field = self.model_cls._meta.fields_map.get(field_name)
+        if orm_field and orm_field.__class__.__name__ in (
+            "ForeignKeyFieldInstance",
+            "OneToOneFieldInstance",
+        ):
+            return f"{prefix}{field_name}_id"
+
+        return resolved
 
 
 @register(AdminAccount)
@@ -105,6 +132,7 @@ class BalanceModelAdmin(HeliosTortoiseModelAdmin):
     """Admin interface for user balances."""
 
     menu_section = "Subscriptions"
+    relation_sort_fields = {"user": "user__telegram_id"}
     list_display = (
         "id",
         "user",
@@ -139,6 +167,7 @@ class PaymentModelAdmin(HeliosTortoiseModelAdmin):
     """Admin interface for payments."""
 
     menu_section = "Payments"
+    relation_sort_fields = {"user": "user__telegram_id", "plan": "plan__name"}
     list_display = ("id", "user", "plan", "amount", "status", "provider", "created_at")
     list_display_links = ("id", "external_id")
     list_filter = ("status", "provider")
@@ -155,6 +184,7 @@ class CodeModelAdmin(HeliosTortoiseModelAdmin):
     """Admin interface for promotional codes."""
 
     menu_section = "Promotions"
+    relation_sort_fields = {"owner": "owner__telegram_id"}
     list_display = (
         "id",
         "code",
@@ -180,6 +210,7 @@ class CodeUsageModelAdmin(HeliosTortoiseModelAdmin):
     """Admin interface for tracking the usage of promotional codes."""
 
     menu_section = "Promotions"
+    relation_sort_fields = {"user": "user__telegram_id", "code": "code__code"}
     list_display = ("id", "user", "code", "created_at")
     list_display_links = ("id",)
     search_fields = (
@@ -195,6 +226,7 @@ class BasePlanGrantModelAdmin(HeliosTortoiseModelAdmin):
     """Admin interface for grants of base subscription plans."""
 
     menu_section = "Subscriptions"
+    relation_sort_fields = {"user": "user__telegram_id"}
     list_display = ("id", "telegram_id", "user", "granted_at")
     list_display_links = ("id", "telegram_id")
     search_fields = (
