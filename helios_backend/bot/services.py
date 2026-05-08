@@ -8,6 +8,7 @@ from helios_backend.services.codes.service import CodeService
 from helios_backend.services.marzban.service import MarzbanService
 from helios_backend.services.payments.service import PaymentService
 from helios_backend.services.plans.service import PlanService
+from helios_backend.services.proxies.service import ProxyService
 from helios_backend.services.users.service import UserService
 
 
@@ -51,3 +52,9 @@ def get_runtime_setting_service() -> RuntimeSettingService:
 def get_code_service() -> CodeService:
     """Provide code service instance."""
     return CodeService()
+
+
+@lru_cache
+def get_proxy_service() -> ProxyService:
+    """Provide proxy service instance."""
+    return ProxyService()

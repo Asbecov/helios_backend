@@ -9,6 +9,7 @@ MODELS_MODULES: list[str] = [
     "helios_backend.db.models.vpn.code_usage",
     "helios_backend.db.models.vpn.base_plan_grant",
     "helios_backend.db.models.vpn.runtime_setting",
+    "helios_backend.db.models.vpn.active_proxies"
 ]
 
 if settings.environment.lower() != "pytest":

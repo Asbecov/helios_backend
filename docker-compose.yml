@@ -66,7 +66,7 @@ services:
   migrator:
     <<: *main_app
     restart: "no"
-    command: aerich upgrade
+    command: ["sh", "-c", "aerich migrate ; aerich upgrade"]
     depends_on:
       db:
         condition: service_healthy

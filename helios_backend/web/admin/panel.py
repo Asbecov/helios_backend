@@ -14,6 +14,7 @@ from helios_backend.db.models.vpn.payment import Payment
 from helios_backend.db.models.vpn.runtime_setting import RuntimeSetting
 from helios_backend.db.models.vpn.subscription_plan import SubscriptionPlan
 from helios_backend.db.models.vpn.user import User
+from helios_backend.db.models.vpn.active_proxies import ActiveProxy
 from helios_backend.services.auth.passwords import (
     hash_password,
     is_password_hash,
@@ -70,6 +71,17 @@ class HeliosTortoiseModelAdmin(TortoiseModelAdmin):
             return f"{prefix}{field_name}_id"
 
         return resolved
+
+
+@register(ActiveProxy)
+class ActiveProxyModelAdmin(HeliosTortoiseModelAdmin):
+    """Admin interface for active proxies."""
+
+    menu_section = "Proxies"
+    list_display = ("id", "proxy", "added_at")
+    list_display_links = ("id", "proxy")
+    search_fields = ("proxy",)
+    readonly_fields = ("added_at",)
 
 
 @register(AdminAccount)

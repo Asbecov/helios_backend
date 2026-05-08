@@ -8,6 +8,7 @@ from helios_backend.db.models.vpn.payment import Payment, PaymentStatus
 from helios_backend.db.models.vpn.runtime_setting import RuntimeSetting
 from helios_backend.db.models.vpn.subscription_plan import SubscriptionPlan
 from helios_backend.db.models.vpn.user import User
+from helios_backend.db.models.vpn.active_proxies import ActiveProxy
 
 __all__ = [
     "Balance",
@@ -20,4 +21,5 @@ __all__ = [
     "RuntimeSetting",
     "SubscriptionPlan",
     "User",
+    "ActiveProxy"
 ]

@@ -19,10 +19,12 @@ from helios_backend.bot.callbacks import (
     BuyPlanCallback,
     CheckPaymentCallback,
 )
+from helios_backend.db.models.vpn.active_proxies import ActiveProxy
 
 ACCOUNT_BUTTON_TEXT = "💳 Мой аккаунт, подписка"
 BUY_BUTTON_TEXT = "💠 Купить подписку"
 CONNECT_BUTTON_TEXT = "🚀 Подключиться"
+FREE_PROXY_BUTTON_TEXT = "🌏 Бесплатный прокси"
 SUPPORT_BUTTON_TEXT = "🆘 Поддержка"
 
 
@@ -33,6 +35,13 @@ class PlanKeyboardView(Protocol):
     name: str
     duration_days: int
     tags: object
+
+
+class ProxyKeyboardView(Protocol):
+    """Structural view required to render proxy buttons."""
+
+    id: int
+    proxy: str
 
 
 def _format_price(value: Decimal) -> str:
@@ -154,10 +163,40 @@ def build_main_menu_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text=ACCOUNT_BUTTON_TEXT)],
             [KeyboardButton(text=BUY_BUTTON_TEXT)],
             [KeyboardButton(text=CONNECT_BUTTON_TEXT)],
+            [KeyboardButton(text=FREE_PROXY_BUTTON_TEXT)],
             [KeyboardButton(text=SUPPORT_BUTTON_TEXT)],
         ],
         resize_keyboard=True,
     )
+
+
+def build_free_proxy_keyboard(
+    proxies: Sequence[ActiveProxy],
+) -> InlineKeyboardMarkup:
+    """Build inline keyboard for free proxy list."""
+    rows: list[list[InlineKeyboardButton]] = []
+    for index, proxy_raw in enumerate(proxies, start=1):
+        proxy = ProxyKeyboardView(
+            id=proxy_raw.id,
+            proxy=proxy_raw.proxy,
+        )
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"Прокси {index}",
+                    url=proxy.proxy,
+                )
+            ]
+        )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=SUPPORT_BUTTON_TEXT,
+                callback_data=SHOW_SUPPORT_CALLBACK,
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def build_subscribe_keyboard() -> InlineKeyboardMarkup:
