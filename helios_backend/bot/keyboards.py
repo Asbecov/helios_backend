@@ -176,15 +176,11 @@ def build_free_proxy_keyboard(
     """Build inline keyboard for free proxy list."""
     rows: list[list[InlineKeyboardButton]] = []
     for index, proxy_raw in enumerate(proxies, start=1):
-        proxy = ProxyKeyboardView(
-            id=proxy_raw.id,
-            proxy=proxy_raw.proxy,
-        )
         rows.append(
             [
                 InlineKeyboardButton(
                     text=f"Прокси {index}",
-                    url=proxy.proxy,
+                    url=proxy_raw.proxy,
                 )
             ]
         )
