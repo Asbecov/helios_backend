@@ -61,9 +61,9 @@ def build_help_text(username: str | None) -> str:
     ]
 
     if settings.telegram_terms_url:
-        lines.append(f"Публичная оферта: {settings.telegram_terms_url}")
+        lines.append(f"Публичная оферта: /terms")
     if settings.telegram_privacy_url:
-        lines.append(f"Политика конфиденциальности: {settings.telegram_privacy_url}")
+        lines.append(f"Политика конфиденциальности: /privacy")
     return "\n".join(lines)
 
 

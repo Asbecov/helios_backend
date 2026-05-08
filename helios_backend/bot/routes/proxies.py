@@ -36,7 +36,7 @@ async def free_proxy_command(message: Message) -> None:
     await send_route_message(
         bot=message.bot,
         chat_id=message.chat.id,
-        text="Выберите бесплатный прокси: \n",
+        text="🌏 Выберите бесплатный прокси:",
         route="proxy",
         reply_markup=build_free_proxy_keyboard(proxies),
     )
