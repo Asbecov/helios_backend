@@ -974,3 +974,17 @@ async def test_webhook_returns_safe_error_message(client: AsyncClient) -> None:
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert response.json()["detail"] == "webhook request rejected"
+
+
+async def test_active_server_added_at_default() -> None:
+    """Verify that added_at is automatically populated when creating ActiveServer."""
+    from datetime import date
+
+    from helios_backend.db.models import ActiveServer
+
+    server = await ActiveServer.create(
+        server_name="Test Server",
+        server_address="test.hhelios.ru",
+    )
+    assert server.added_at == date.today()
+

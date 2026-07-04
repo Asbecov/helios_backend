@@ -1,14 +1,18 @@
 from datetime import date
-from tortoise import fields, Model
+
+from tortoise import Model, fields
+
 
 class ActiveServer(Model):
+    """ActiveServer represents an active VPN server."""
+
     id = fields.IntField(pk=True)
     server_name = fields.CharField(max_length = 4096)
     server_address = fields.CharField(max_length = 4096, unique = True)
-    added_at : date = fields.DateField(auto_now_add = True)
+    added_at: date = fields.DateField(default=date.today)
 
     class Meta(Model.Meta):
-        '''Represents Active Server class meta'''
+        """Represents Active Server class meta."""
 
         table = "active_server"
 
