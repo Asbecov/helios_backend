@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 
 from helios_backend.services.servers.service import ActiveServerService
 from helios_backend.web.api.servers.schemas import ActiveServerResponse
-from helios_backend.services.dependencies import get_server_service
+from helios_backend.web.dependencies.services import get_server_service
 
 router = APIRouter(prefix="/servers", tags=["servers"])
 
@@ -17,6 +17,6 @@ async def get_servers(
             server_name=server.server_name,
             server_address=server.server_address,
             added_at=server.added_at.isoformat()
-        ) 
+        )
         for server in server_list
     ]

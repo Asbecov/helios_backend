@@ -1,3 +1,3 @@
-from helios_backend.web.api.servers.view import router
+from helios_backend.web.api.servers.views import router
 
 __all__ = ["router"]
