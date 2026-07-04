@@ -7,6 +7,8 @@ from helios_backend.web.api import (
     plans,
     subscriptions,
     users,
+    proxies,
+    servers
 )
 
 __all__ = [
@@ -16,4 +18,6 @@ __all__ = [
     "plans",
     "subscriptions",
     "users",
+    "proxies",
+    "servers"
 ]

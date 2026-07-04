@@ -6,6 +6,7 @@ from helios_backend.web.api import (
     payments,
     plans,
     proxies,
+    servers,
     subscriptions,
     users,
 )
@@ -18,3 +19,4 @@ api_router.include_router(users.router)
 api_router.include_router(subscriptions.router)
 api_router.include_router(payments.router)
 api_router.include_router(proxies.router)
+api_router.include_router(servers.router)
