@@ -25,7 +25,7 @@ class Balance(models.Model):
     activated_at: datetime | None = fields.DatetimeField(null=True)
     created_at: datetime = fields.DatetimeField(auto_now_add=True)
 
-    class Meta:
+    class Meta(models.Model.Meta):
         """Represent meta."""
 
         table = "balances"

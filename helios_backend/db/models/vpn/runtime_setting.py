@@ -14,7 +14,7 @@ class RuntimeSetting(models.Model):
     created_at: datetime = fields.DatetimeField(auto_now_add=True)
     updated_at: datetime = fields.DatetimeField(auto_now=True)
 
-    class Meta:
+    class Meta(models.Model.Meta):
         """Represent meta."""
 
         table = "runtime_settings"

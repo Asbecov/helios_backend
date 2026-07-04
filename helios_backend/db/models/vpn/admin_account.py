@@ -12,7 +12,7 @@ class AdminAccount(models.Model):
 
     created_at: datetime = fields.DatetimeField(auto_now_add=True)
 
-    class Meta:
+    class Meta(models.Model.Meta):
         """Represent meta."""
 
         table = "admin_accounts"

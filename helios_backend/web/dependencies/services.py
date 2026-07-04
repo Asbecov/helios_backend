@@ -1,5 +1,6 @@
 """Service dependency providers for API handlers."""
 
+from helios_backend.services.servers.service import ActiveServerService
 from functools import lru_cache
 
 from helios_backend.services.admin.runtime_settings import RuntimeSettingService
@@ -67,6 +68,10 @@ def get_proxy_service() -> ProxyService:
     """Provide proxy service instance."""
     return ProxyService()
 
+@lru_cache
+def get_server_service() -> ActiveServerService:
+    """Provide server service instance."""
+    return ActiveServerService()
 
 @lru_cache
 def get_runtime_setting_service() -> RuntimeSettingService:

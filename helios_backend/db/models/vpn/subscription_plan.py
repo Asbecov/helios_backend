@@ -13,7 +13,7 @@ class SubscriptionPlan(models.Model):
     is_base = fields.BooleanField(default=False)
     tags: fields.Field[dict[str, str]] = fields.JSONField(default=dict)
 
-    class Meta:
+    class Meta(models.Model.Meta):
         """Represent meta."""
 
         table = "subscription_plans"

@@ -40,7 +40,7 @@ class Payment(models.Model):
     external_id = fields.CharField(max_length=255, unique=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
-    class Meta:
+    class Meta(models.Model.Meta):
         """Represent meta."""
 
         table = "payments"

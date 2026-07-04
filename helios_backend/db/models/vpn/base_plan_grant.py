@@ -20,7 +20,7 @@ class BasePlanGrant(models.Model):
     )
     granted_at: datetime = fields.DatetimeField(auto_now_add=True)
 
-    class Meta:
+    class Meta(models.Model.Meta):
         """Represent meta."""
 
         table = "base_plan_grants"

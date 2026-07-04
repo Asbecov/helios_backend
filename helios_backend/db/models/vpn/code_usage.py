@@ -21,7 +21,7 @@ class CodeUsage(models.Model):
     )
     created_at = fields.DatetimeField(auto_now_add=True)
 
-    class Meta:
+    class Meta(models.Model.Meta):
         """Represent meta."""
 
         table = "code_usages"

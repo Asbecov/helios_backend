@@ -31,7 +31,7 @@ class Code(models.Model):
     expires_at = fields.DatetimeField(null=True)
     is_active = fields.BooleanField(default=True)
 
-    class Meta:
+    class Meta(models.Model.Meta):
         """Represent meta."""
 
         table = "codes"

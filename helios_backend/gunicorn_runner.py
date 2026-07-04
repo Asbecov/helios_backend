@@ -67,7 +67,7 @@ class GunicornApplication(BaseApplication):
             if key in self.cfg.settings and value is not None:
                 self.cfg.set(key.lower(), value)
 
-    def load(self) -> str:
+    def load(self) -> Any:
         """
         Load actual application.
 

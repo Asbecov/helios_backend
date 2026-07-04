@@ -1,3 +1,4 @@
+from helios_backend.db.models import ActiveServer
 import hmac
 import logging
 
@@ -72,6 +73,15 @@ class HeliosTortoiseModelAdmin(TortoiseModelAdmin):
 
         return resolved
 
+@register(ActiveServer)
+class ActiveServerModelAdmin(HeliosTortoiseModelAdmin):
+    """Admin interface for active servers."""\
+
+    menu_section = "Servers"
+    list_display = ("id", "server_name", "server_address", "added_at")
+    list_display_links = ("id", "server_name", "server_address")
+    search_fields = ("server_name",)
+    readonly_fields = ("added_at",)
 
 @register(ActiveProxy)
 class ActiveProxyModelAdmin(HeliosTortoiseModelAdmin):

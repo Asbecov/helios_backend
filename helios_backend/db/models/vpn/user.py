@@ -12,7 +12,7 @@ class User(models.Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     marzban_username = fields.CharField(max_length=120, unique=True, null=True)
 
-    class Meta:
+    class Meta(models.Model.Meta):
         """Represent meta."""
 
         table = "users"
