@@ -143,9 +143,23 @@ class UserModelAdmin(HeliosTortoiseModelAdmin):
     """Admin interface for users that represent customers of the VPN service."""
 
     menu_section = "Users"
-    list_display = ("id", "telegram_id", "username", "marzban_username", "created_at")
+    list_display = (
+        "id",
+        "telegram_id",
+        "google_email",
+        "username",
+        "marzban_username",
+        "created_at",
+    )
     list_display_links = ("id", "telegram_id")
-    search_fields = ("id", "telegram_id", "username", "marzban_username")
+    search_fields = (
+        "id",
+        "telegram_id",
+        "google_sub",
+        "google_email",
+        "username",
+        "marzban_username",
+    )
     readonly_fields = ("created_at",)
 
 

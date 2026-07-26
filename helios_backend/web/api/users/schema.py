@@ -8,10 +8,12 @@ class UserResponse(BaseModel):
     """User profile response."""
 
     id: UUID
-    telegram_id: int
-    username: str | None
+    telegram_id: int | None = None
+    google_sub: str | None = None
+    google_email: str | None = None
+    username: str | None = None
     created_at: datetime
-    marzban_username: str | None
+    marzban_username: str | None = None
 
 
 class ReferralCodeResponse(BaseModel):
@@ -33,5 +35,5 @@ class ReferralUsageResponse(BaseModel):
     code_id: UUID
     code: str
     user_id: UUID
-    user_telegram_id: int
-    user_username: str | None
+    user_telegram_id: int | None = None
+    user_username: str | None = None

@@ -77,3 +77,51 @@ class TelegramAuthService:
             msg = "invalid user payload json"
             raise ValueError(msg) from exc
         return TelegramAuthData(user=user_data, start_param=parsed.get("start_param"))
+
+    def validate_widget_data(self, widget_data: dict[str, str | int]) -> TelegramAuthData:
+        """Validate Telegram Web Login Widget data."""
+        if not settings.telegram_bot_token:
+            msg = "telegram bot token is not configured"
+            raise ValueError(msg)
+
+        data = {k: str(v) for k, v in widget_data.items()}
+        received_hash = data.pop("hash", None)
+        if not received_hash:
+            msg = "widget data hash is missing"
+            raise ValueError(msg)
+
+        data_check_string = "\n".join(
+            sorted(f"{key}={value}" for key, value in data.items()),
+        )
+        secret_key = hashlib.sha256(
+            settings.telegram_bot_token.encode("utf-8"),
+        ).digest()
+        computed_hash = hmac.new(
+            key=secret_key,
+            msg=data_check_string.encode("utf-8"),
+            digestmod=hashlib.sha256,
+        ).hexdigest()
+        if not secrets.compare_digest(computed_hash, received_hash):
+            msg = "invalid widget data hash"
+            raise ValueError(msg)
+
+        auth_date_raw = data.get("auth_date")
+        if not auth_date_raw or not auth_date_raw.isdigit():
+            msg = "invalid auth_date"
+            raise ValueError(msg)
+        auth_date = datetime.fromtimestamp(int(auth_date_raw), tz=UTC)
+        age_seconds = (datetime.now(tz=UTC) - auth_date).total_seconds()
+        if age_seconds > settings.telegram_auth_max_age_seconds:
+            msg = "widget data is expired"
+            raise ValueError(msg)
+
+        user_id_raw = data.get("id")
+        if not user_id_raw or not user_id_raw.isdigit():
+            msg = "missing user id in widget data"
+            raise ValueError(msg)
+
+        user_data = TelegramUserData(
+            id=int(user_id_raw),
+            username=data.get("username"),
+        )
+        return TelegramAuthData(user=user_data)

@@ -4,6 +4,7 @@ from helios_backend.services.servers.service import ActiveServerService
 from functools import lru_cache
 
 from helios_backend.services.admin.runtime_settings import RuntimeSettingService
+from helios_backend.services.auth.google import GoogleAuthService
 from helios_backend.services.auth.jwt import JwtService
 from helios_backend.services.auth.telegram import TelegramAuthService
 from helios_backend.services.balance.service import BalanceService
@@ -25,6 +26,12 @@ def get_jwt_service() -> JwtService:
 def get_telegram_auth_service() -> TelegramAuthService:
     """Provide Telegram auth service instance."""
     return TelegramAuthService()
+
+
+@lru_cache
+def get_google_auth_service() -> GoogleAuthService:
+    """Provide Google auth service instance."""
+    return GoogleAuthService()
 
 
 @lru_cache

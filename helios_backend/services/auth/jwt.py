@@ -23,6 +23,20 @@ class JwtService:
             payload, settings.jwt_secret, algorithm=settings.jwt_algorithm
         )
 
+    def create_refresh_token(self, user_id: UUID) -> str:
+        """Handle create refresh token."""
+        expires_at = datetime.now(tz=UTC) + timedelta(
+            days=settings.jwt_refresh_token_exp_days,
+        )
+        payload = {
+            "sub": str(user_id),
+            "exp": expires_at,
+            "type": "refresh",
+        }
+        return jwt.encode(
+            payload, settings.jwt_secret, algorithm=settings.jwt_algorithm
+        )
+
     def decode_access_token(self, token: str) -> UUID:
         """Handle decode access token."""
         payload = jwt.decode(
@@ -32,6 +46,23 @@ class JwtService:
         )
         token_type = payload.get("type")
         if token_type != "access":
+            msg = "invalid token type"
+            raise ValueError(msg)
+        subject = payload.get("sub")
+        if not subject:
+            msg = "missing token subject"
+            raise ValueError(msg)
+        return UUID(subject)
+
+    def decode_refresh_token(self, token: str) -> UUID:
+        """Handle decode refresh token."""
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret,
+            algorithms=[settings.jwt_algorithm],
+        )
+        token_type = payload.get("type")
+        if token_type != "refresh":
             msg = "invalid token type"
             raise ValueError(msg)
         subject = payload.get("sub")

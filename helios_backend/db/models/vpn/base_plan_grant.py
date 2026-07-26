@@ -8,10 +8,11 @@ from helios_backend.db.models.vpn.user import User
 
 
 class BasePlanGrant(models.Model):
-    """Tracks one-time base-plan grants by Telegram identity."""
+    """Tracks one-time base-plan grants by Telegram or Google identity."""
 
     id = fields.UUIDField(pk=True, default=uuid.uuid4)
-    telegram_id = fields.BigIntField(unique=True)
+    telegram_id = fields.BigIntField(unique=True, null=True)
+    google_sub = fields.CharField(max_length=255, unique=True, null=True)
     user: ForeignKeyNullableRelation[User] = fields.ForeignKeyField(
         "models.User",
         related_name="base_plan_grants",

@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     jwt_secret: str
     jwt_algorithm: str = "HS256"
     jwt_access_token_exp_minutes: int = 60
+    jwt_refresh_token_exp_days: int = 30
+
+    # Google OAuth settings.
+    google_client_id: str = ""
 
     # Telegram auth settings.
     telegram_bot_token: str = ""
