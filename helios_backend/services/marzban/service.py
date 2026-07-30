@@ -47,10 +47,9 @@ class MarzbanService:
 
     _DEFAULT_PROXY_NAME: ClassVar[str] = "vless"
     _DEFAULT_INBOUND_NAMES: ClassVar[tuple[str, ...]] = (
-        "vless tls",
         "vless reality",
         "vless reality 443",
-        "vless reality 443 finland",
+        "vless xhttp",
     )
     _DEFAULT_PROXY_SETTINGS: ClassVar[ProxySettings] = ProxySettings(
         flow="xtls-rprx-vision"
