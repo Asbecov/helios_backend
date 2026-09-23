@@ -87,7 +87,6 @@ async def send_connect_flow(
 
         subscription_url = await panel_service.get_subscription_url(panel_username)
     except PanelServiceError as e:
-        print(f"Panel service error: {e}")
         await send_route_message(
             bot=bot,
             chat_id=chat_id,
