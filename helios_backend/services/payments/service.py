@@ -12,7 +12,11 @@ from helios_backend.db.models.vpn.payment import Payment, PaymentStatus
 from helios_backend.db.models.vpn.user import User
 from helios_backend.services.balance.service import BalanceService
 from helios_backend.services.codes.service import CodeService
-from helios_backend.services.marzban.service import MarzbanService, MarzbanServiceError
+from helios_backend.services.panel import (
+    BasePanelService,
+    PanelService,
+    PanelServiceError,
+)
 from helios_backend.services.payments.base import BasePaymentProvider
 from helios_backend.services.payments.dummy_provider import DummyProvider
 from helios_backend.services.payments.yookassa_provider import YookassaProvider
@@ -33,7 +37,7 @@ class PaymentService:
         code_service: CodeService | None = None,
         user_service: UserService | None = None,
         balance_service: BalanceService | None = None,
-        marzban_service: MarzbanService | None = None,
+        panel_service: BasePanelService | None = None,
     ) -> None:
         """Initialize payment service."""
         self._payment_dao = payment_dao or PaymentDao()
@@ -41,7 +45,7 @@ class PaymentService:
         self._code_service = code_service or CodeService()
         self._user_service = user_service or UserService()
         self._balance_service = balance_service or BalanceService()
-        self._marzban_service = marzban_service or MarzbanService()
+        self._panel_service = panel_service or PanelService()
         self._providers: dict[str, BasePaymentProvider] = {
             DummyProvider.name: DummyProvider()
         }
@@ -155,7 +159,7 @@ class PaymentService:
 
     async def _finalize_paid_payment(self, payment: Payment) -> None:
         """Handle finalize paid payment."""
-        marzban_sync_payload: tuple[str, datetime] | None = None
+        panel_sync_payload: tuple[str, datetime] | None = None
 
         async with in_transaction():
             # Compare-and-set ensures only one concurrent callback
@@ -175,30 +179,30 @@ class PaymentService:
                 payment.user,
                 payment.plan,
             )
-            marzban_username = payment.user.marzban_username
+            panel_username = payment.user.marzban_username
             if (
-                isinstance(marzban_username, str)
-                and marzban_username
+                isinstance(panel_username, str)
+                and panel_username
                 and updated_balance.is_frozen is False
                 and updated_balance.expires_at is not None
             ):
-                marzban_sync_payload = (marzban_username, updated_balance.expires_at)
+                panel_sync_payload = (panel_username, updated_balance.expires_at)
 
             await self._code_service.consume(payment.code, user_id=payment.user.id)
             await self._apply_referral_reward(payment)
 
-        if marzban_sync_payload is None:
+        if panel_sync_payload is None:
             return
 
-        marzban_username, expires_at = marzban_sync_payload
+        panel_username, expires_at = panel_sync_payload
         try:
-            await self._marzban_service.extend_user(
-                username=marzban_username,
+            await self._panel_service.extend_user(
+                username=panel_username,
                 expires_at=expires_at,
             )
-        except MarzbanServiceError:
+        except PanelServiceError:
             logger.exception(
-                "Failed to sync Marzban expiry after successful payment",
+                "Failed to sync panel expiry after successful payment",
             )
 
     async def _apply_referral_reward(self, payment: Payment) -> None:

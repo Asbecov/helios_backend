@@ -11,13 +11,13 @@ from helios_backend.bot.keyboards import (
 )
 from helios_backend.bot.services import (
     get_balance_service,
-    get_marzban_service,
+    get_panel_service,
     get_user_service,
 )
 from helios_backend.db.models.vpn.user import User
-from helios_backend.services.marzban.service import (
-    MarzbanServiceError,
-    MarzbanUserAlreadyExistsError,
+from helios_backend.services.panel import (
+    PanelServiceError,
+    PanelUserAlreadyExistsError,
 )
 
 
@@ -29,7 +29,7 @@ async def send_connect_flow(
     """Send connection flow only for active subscriptions."""
     balance_service = get_balance_service()
     user_service = get_user_service()
-    marzban_service = get_marzban_service()
+    panel_service = get_panel_service()
 
     async def no_sub(text: str = "🚫 У вас нет активной подписки.") -> None:
         await send_route_message(
@@ -71,22 +71,22 @@ async def send_connect_flow(
     if expires_at.timestamp() < now.timestamp():
         return await no_sub("🚫 Ваша подписка истекла.")
 
-    marzban_username = await user_service.get_or_create_marzban_username(user)
+    panel_username = await user_service.get_or_create_panel_username(user)
 
     try:
         try:
-            await marzban_service.create_user(
-                username=marzban_username,
+            await panel_service.create_user(
+                username=panel_username,
                 expires_at=expires_at,
             )
-        except MarzbanUserAlreadyExistsError:
-            await marzban_service.extend_user(
-                username=marzban_username,
+        except PanelUserAlreadyExistsError:
+            await panel_service.extend_user(
+                username=panel_username,
                 expires_at=expires_at,
             )
 
-        subscription_url = await marzban_service.get_subscription_url(marzban_username)
-    except MarzbanServiceError:
+        subscription_url = await panel_service.get_subscription_url(panel_username)
+    except PanelServiceError:
         await send_route_message(
             bot=bot,
             chat_id=chat_id,

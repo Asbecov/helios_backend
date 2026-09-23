@@ -17,7 +17,7 @@ from helios_backend.services.admin.runtime_settings import RuntimeSettingService
 from helios_backend.services.auth.jwt import JwtService
 from helios_backend.services.balance.service import BalanceService
 from helios_backend.services.codes.service import CodeService
-from helios_backend.services.marzban.service import MarzbanService, MarzbanServiceError
+from helios_backend.services.panel import PanelService, PanelServiceError
 from helios_backend.services.users.service import UserService
 
 
@@ -304,11 +304,9 @@ async def test_subscription_url_endpoint(
         _ = username
         return "https://sub.example.com/sub/token123"
 
-    from helios_backend.services.marzban.service import MarzbanService
-
-    monkeypatch.setattr(MarzbanService, "create_user", fake_create_user)
+    monkeypatch.setattr(PanelService, "create_user", fake_create_user)
     monkeypatch.setattr(
-        MarzbanService, "get_subscription_url", fake_get_subscription_url
+        PanelService, "get_subscription_url", fake_get_subscription_url
     )
 
     activate_response = await client.post(
@@ -329,11 +327,11 @@ async def test_subscription_url_endpoint(
     }
 
 
-async def test_subscription_url_creates_marzban_user_and_sets_username(
+async def test_subscription_url_creates_panel_user_and_sets_username(
     client: AsyncClient,
     monkeypatch: MonkeyPatch,
 ) -> None:
-    """Provision Marzban user and persist generated username on first request."""
+    """Provision panel user and persist generated username on first request."""
     user = await User.create(
         telegram_id=3344,
         username="u3344",
@@ -354,11 +352,9 @@ async def test_subscription_url_creates_marzban_user_and_sets_username(
         _ = self
         return f"https://sub.example.com/sub/{username}"
 
-    from helios_backend.services.marzban.service import MarzbanService
-
-    monkeypatch.setattr(MarzbanService, "create_user", fake_create_user)
+    monkeypatch.setattr(PanelService, "create_user", fake_create_user)
     monkeypatch.setattr(
-        MarzbanService, "get_subscription_url", fake_get_subscription_url
+        PanelService, "get_subscription_url", fake_get_subscription_url
     )
 
     activate_response = await client.post(
@@ -388,11 +384,11 @@ async def test_subscription_url_creates_marzban_user_and_sets_username(
     assert calls[0][0] == updated_user.marzban_username
 
 
-async def test_subscription_url_returns_502_on_marzban_sync_failure(
+async def test_subscription_url_returns_502_on_panel_sync_failure(
     client: AsyncClient,
     monkeypatch: MonkeyPatch,
 ) -> None:
-    """Return 502 when Marzban sync fails for reasons other than existing user."""
+    """Return 502 when panel sync fails for reasons other than existing user."""
     user = await User.create(
         telegram_id=3388,
         username="u3388",
@@ -407,9 +403,9 @@ async def test_subscription_url_returns_502_on_marzban_sync_failure(
         _ = self
         _ = username
         _ = expires_at
-        raise MarzbanServiceError("network unavailable")
+        raise PanelServiceError("network unavailable")
 
-    monkeypatch.setattr(MarzbanService, "create_user", fake_create_user)
+    monkeypatch.setattr(PanelService, "create_user", fake_create_user)
 
     activate_response = await client.post(
         "/api/subscription/activate",
@@ -427,7 +423,7 @@ async def test_subscription_url_returns_502_on_marzban_sync_failure(
     )
 
     assert response.status_code == status.HTTP_502_BAD_GATEWAY
-    assert response.json()["detail"] == "failed to sync subscription with marzban"
+    assert response.json()["detail"] == "failed to sync subscription with panel"
 
 
 async def test_code_can_be_used_only_once_per_user_in_payment_creation(
@@ -621,7 +617,7 @@ async def test_paid_webhook_extends_marzban_for_active_user(
         _ = self
         calls.append((username, expires_at))
 
-    monkeypatch.setattr(MarzbanService, "extend_user", fake_extend_user)
+    monkeypatch.setattr(PanelService, "extend_user", fake_extend_user)
 
     create_response = await client.post(
         "/api/payments/create",
@@ -645,11 +641,11 @@ async def test_paid_webhook_extends_marzban_for_active_user(
     assert synced_expires_at > initial_expire
 
 
-async def test_paid_webhook_keeps_success_when_marzban_sync_fails(
+async def test_paid_webhook_keeps_success_when_panel_sync_fails(
     client: AsyncClient,
     monkeypatch: MonkeyPatch,
 ) -> None:
-    """Keep webhook paid response successful when Marzban sync raises an error."""
+    """Keep webhook paid response successful when panel sync raises an error."""
     user = await User.create(
         telegram_id=8900,
         username="u8900",
@@ -679,9 +675,9 @@ async def test_paid_webhook_keeps_success_when_marzban_sync_fails(
         _ = self
         _ = username
         _ = expires_at
-        raise MarzbanServiceError("temporary marzban outage")
+        raise PanelServiceError("temporary panel outage")
 
-    monkeypatch.setattr(MarzbanService, "extend_user", fake_extend_user)
+    monkeypatch.setattr(PanelService, "extend_user", fake_extend_user)
 
     create_response = await client.post(
         "/api/payments/create",

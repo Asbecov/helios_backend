@@ -5,15 +5,15 @@ from urllib.parse import urlsplit, urlunsplit
 
 from marzban import MarzbanAPI, MarzbanTokenCache, ProxySettings, UserCreate, UserModify
 
+from helios_backend.services.panel.base import (
+    BasePanelService,
+    PanelServiceError,
+    PanelUserAlreadyExistsError,
+)
 from helios_backend.settings import settings
 
-
-class MarzbanServiceError(RuntimeError):
-    """Raised when Marzban operations fail."""
-
-
-class MarzbanUserAlreadyExistsError(MarzbanServiceError):
-    """Raised when Marzban create_user fails because user already exists."""
+MarzbanServiceError = PanelServiceError
+MarzbanUserAlreadyExistsError = PanelUserAlreadyExistsError
 
 
 def _normalize_marzban_base_url(base_url: str) -> str:
@@ -42,7 +42,7 @@ def _normalize_marzban_base_url(base_url: str) -> str:
     return urlunsplit((parsed.scheme, parsed.netloc, normalized_path, "", ""))
 
 
-class MarzbanService:
+class MarzbanService(BasePanelService):
     """Client for Marzban API operations via marzban public API."""
 
     _DEFAULT_PROXY_NAME: ClassVar[str] = "vless"
@@ -54,11 +54,34 @@ class MarzbanService:
         flow="xtls-rprx-vision"
     )
 
-    def __init__(self) -> None:
-        """Initialize lazy Marzban API client and token cache."""
+    def __init__(
+        self,
+        base_url: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
+    ) -> None:
+        """Initialize Marzban API client with optional instance parameters."""
+        self._custom_base_url = base_url
+        self._custom_username = username
+        self._custom_password = password
         self._api: MarzbanAPI | None = None
         self._token_cache: MarzbanTokenCache | None = None
         self._fingerprint: tuple[str, str, str] | None = None
+
+    @property
+    def base_url(self) -> str | None:
+        """Get resolved base URL."""
+        return self._custom_base_url or settings.marzban_base_url
+
+    @property
+    def username(self) -> str | None:
+        """Get resolved username."""
+        return self._custom_username or settings.marzban_admin_username
+
+    @property
+    def password(self) -> str | None:
+        """Get resolved password."""
+        return self._custom_password or settings.marzban_admin_password
 
     @staticmethod
     def _is_user_exists_error(exc: Exception) -> bool:
@@ -75,23 +98,18 @@ class MarzbanService:
         message = str(exc).lower()
         return ("exist" in message and "user" in message) or "already exists" in message
 
-    @staticmethod
-    def _is_configured() -> bool:
+    def _is_configured(self) -> bool:
         """Check whether Marzban settings are configured."""
-        return bool(
-            settings.marzban_base_url
-            and settings.marzban_admin_username
-            and settings.marzban_admin_password
-        )
+        return bool(self.base_url and self.username and self.password)
 
     async def _ensure_client(self) -> tuple[MarzbanAPI, MarzbanTokenCache] | None:
         """Build or reuse Marzban API client and token cache."""
         if not self._is_configured():
             return None
 
-        base_url = _normalize_marzban_base_url(settings.marzban_base_url or "")
-        username = settings.marzban_admin_username or ""
-        password = settings.marzban_admin_password or ""
+        base_url = _normalize_marzban_base_url(self.base_url or "")
+        username = self.username or ""
+        password = self.password or ""
         fingerprint = (base_url, username, password)
 
         if self._api is not None and self._token_cache is not None:
@@ -182,7 +200,7 @@ class MarzbanService:
         """Fetch user details from Marzban."""
         token_bundle = await self._get_token()
         if token_bundle is None:
-            return {"expire": None}
+            return {"expire": None, "subscription_url": None}
 
         api, token = token_bundle
         try:

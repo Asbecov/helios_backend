@@ -3,10 +3,10 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from helios_backend.services.balance.service import BalanceService
-from helios_backend.services.marzban.service import (
-    MarzbanService,
-    MarzbanServiceError,
-    MarzbanUserAlreadyExistsError,
+from helios_backend.services.panel import (
+    BasePanelService,
+    PanelServiceError,
+    PanelUserAlreadyExistsError,
 )
 from helios_backend.services.users.service import UserService
 from helios_backend.web.api.subscriptions.schema import (
@@ -16,7 +16,7 @@ from helios_backend.web.api.subscriptions.schema import (
 from helios_backend.web.dependencies.security import CurrentUser
 from helios_backend.web.dependencies.services import (
     get_balance_service,
-    get_marzban_service,
+    get_panel_service,
     get_user_service,
 )
 
@@ -98,7 +98,7 @@ async def activate_subscription(
 async def get_subscription_url(
     user: CurrentUser,
     balance_service: BalanceService = Depends(get_balance_service),
-    marzban_service: MarzbanService = Depends(get_marzban_service),
+    panel_service: BasePanelService = Depends(get_panel_service),
     user_service: UserService = Depends(get_user_service),
 ) -> SubscriptionUrlResponse:
     """Return subscription URL only when local balance is already active."""
@@ -113,27 +113,27 @@ async def get_subscription_url(
     if not isinstance(active_expires_at, str):
         return SubscriptionUrlResponse(subscription_url=None)
 
-    marzban_username = await user_service.get_or_create_marzban_username(user)
+    panel_username = await user_service.get_or_create_panel_username(user)
     expires_at = datetime.fromisoformat(active_expires_at)
 
     try:
         try:
-            await marzban_service.create_user(
-                username=marzban_username,
+            await panel_service.create_user(
+                username=panel_username,
                 expires_at=expires_at,
             )
-        except MarzbanUserAlreadyExistsError:
+        except PanelUserAlreadyExistsError:
             # If user already exists remotely, extend expiry to match local state.
-            await marzban_service.extend_user(
-                username=marzban_username,
+            await panel_service.extend_user(
+                username=panel_username,
                 expires_at=expires_at,
             )
 
-        subscription_url = await marzban_service.get_subscription_url(marzban_username)
-    except MarzbanServiceError as exc:
+        subscription_url = await panel_service.get_subscription_url(panel_username)
+    except PanelServiceError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="failed to sync subscription with marzban",
+            detail="failed to sync subscription with panel",
         ) from exc
 
     return SubscriptionUrlResponse(subscription_url=subscription_url)
