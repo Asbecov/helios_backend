@@ -4,7 +4,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from remnawave import RemnawaveSDK
 from remnawave.exceptions import ConflictError, NotFoundError
-from remnawave.models.users import CreateUserRequestDto, UpdateUserRequestDto
+from remnawave.models.users import UUID, CreateUserBodyDto, UpdateUserBodyDto
 
 from helios_backend.services.panel.base import (
     BasePanelService,
@@ -126,9 +126,10 @@ class RemnawaveService(BasePanelService):
         if sdk is None:
             return
 
-        body = CreateUserRequestDto(
+        body = CreateUserBodyDto(
             username=username,
             expire_at=self._ensure_timezone(expires_at),
+            active_internal_squads=[UUID(hex="3dd9bef1-558b-4495-b4f8-775fc30b7acd")]
         )
 
         try:
@@ -147,9 +148,10 @@ class RemnawaveService(BasePanelService):
         if sdk is None:
             return
 
-        body = UpdateUserRequestDto(
+        body = UpdateUserBodyDto(
             username=username,
             expire_at=self._ensure_timezone(expires_at),
+            active_internal_squads=[UUID(hex="3dd9bef1-558b-4495-b4f8-775fc30b7acd")]
         )
 
         try:
