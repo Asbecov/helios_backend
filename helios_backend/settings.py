@@ -78,10 +78,17 @@ class Settings(BaseSettings):
     telegram_terms_image_url: str = ""
     telegram_privacy_image_url: str = ""
 
+    # Panel integration settings.
+    panel_type: str = "remnawave"
+
     # Marzban integration.
     marzban_base_url: str | None = None
     marzban_admin_username: str | None = None
     marzban_admin_password: str | None = None
+
+    # Remnawave integration.
+    remnawave_base_url: str | None = None
+    remnawave_api_token: str | None = None
 
     # Base plan.
     base_plan_name: str = "Пробный план"

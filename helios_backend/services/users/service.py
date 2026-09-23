@@ -8,7 +8,7 @@ from helios_backend.db.models.vpn.subscription_plan import SubscriptionPlan
 from helios_backend.db.models.vpn.user import User
 from helios_backend.services.balance.service import BalanceService
 from helios_backend.services.codes.service import CodeService
-from helios_backend.services.marzban.service import MarzbanService
+from helios_backend.services.panel import BasePanelService, PanelService
 from helios_backend.services.plans.service import PlanService
 
 
@@ -22,7 +22,7 @@ class UserService:
         balance_service: BalanceService | None = None,
         plan_service: PlanService | None = None,
         code_service: CodeService | None = None,
-        marzban_service: MarzbanService | None = None,
+        panel_service: BasePanelService | None = None,
     ) -> None:
         """Initialize user service."""
         self._user_dao = user_dao or UserDao()
@@ -30,7 +30,7 @@ class UserService:
         self._balance_service = balance_service or BalanceService()
         self._plan_service = plan_service or PlanService()
         self._code_service = code_service or CodeService()
-        self._marzban_service = marzban_service or MarzbanService()
+        self._panel_service = panel_service or PanelService()
 
     async def _generate_unique_marzban_username(self, stem: str) -> str:
         """Handle generate unique marzban username."""
@@ -97,8 +97,10 @@ class UserService:
     async def delete_user(self, user: User) -> None:
         """Handle delete user."""
         await self._code_service.delete_user_referral_codes(user.id)
-        await self._marzban_service.delete_user(
+        await self._panel_service.delete_user(
             user.marzban_username
         )  # Does nothing if marzban_username is None.
         await self._balance_service.delete_user_balance(user)
         await self._user_dao.delete(user)
+
+    get_or_create_panel_username = get_or_create_marzban_username

@@ -1,6 +1,5 @@
 """Service dependency providers for API handlers."""
 
-from helios_backend.services.servers.service import ActiveServerService
 from functools import lru_cache
 
 from helios_backend.services.admin.runtime_settings import RuntimeSettingService
@@ -8,10 +7,11 @@ from helios_backend.services.auth.jwt import JwtService
 from helios_backend.services.auth.telegram import TelegramAuthService
 from helios_backend.services.balance.service import BalanceService
 from helios_backend.services.codes.service import CodeService
-from helios_backend.services.marzban.service import MarzbanService
+from helios_backend.services.panel import BasePanelService, PanelService
 from helios_backend.services.payments.service import PaymentService
 from helios_backend.services.plans.service import PlanService
 from helios_backend.services.proxies.service import ProxyService
+from helios_backend.services.servers.service import ActiveServerService
 from helios_backend.services.users.service import UserService
 
 
@@ -52,9 +52,9 @@ def get_balance_service() -> BalanceService:
 
 
 @lru_cache
-def get_marzban_service() -> MarzbanService:
-    """Provide Marzban service instance."""
-    return MarzbanService()
+def get_panel_service() -> BasePanelService:
+    """Provide active panel service instance."""
+    return PanelService()
 
 
 @lru_cache
