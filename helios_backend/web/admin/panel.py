@@ -1,11 +1,13 @@
-from helios_backend.db.models import ActiveServer
 import hmac
 import logging
+from uuid import UUID
 
-from fastadmin import TortoiseModelAdmin, register
+from fastadmin import TortoiseModelAdmin, action, register
 from fastadmin import fastapi_app as admin_app
 from fastapi import FastAPI
 
+from helios_backend.db.models import ActiveServer
+from helios_backend.db.models.vpn.active_proxies import ActiveProxy
 from helios_backend.db.models.vpn.admin_account import AdminAccount
 from helios_backend.db.models.vpn.balance import Balance
 from helios_backend.db.models.vpn.base_plan_grant import BasePlanGrant
@@ -15,7 +17,7 @@ from helios_backend.db.models.vpn.payment import Payment
 from helios_backend.db.models.vpn.runtime_setting import RuntimeSetting
 from helios_backend.db.models.vpn.subscription_plan import SubscriptionPlan
 from helios_backend.db.models.vpn.user import User
-from helios_backend.db.models.vpn.active_proxies import ActiveProxy
+from helios_backend.services.admin.batch_balance_service import BatchBalanceService
 from helios_backend.services.auth.passwords import (
     hash_password,
     is_password_hash,
@@ -25,6 +27,7 @@ from helios_backend.settings import settings
 
 logger = logging.getLogger(__name__)
 _bootstrap_state = {"done": False}
+batch_balance_service = BatchBalanceService()
 
 
 class HeliosTortoiseModelAdmin(TortoiseModelAdmin):
@@ -147,6 +150,61 @@ class UserModelAdmin(HeliosTortoiseModelAdmin):
     list_display_links = ("id", "telegram_id")
     search_fields = ("id", "telegram_id", "username", "marzban_username")
     readonly_fields = ("created_at",)
+    actions = (
+        "add_5_days",
+        "add_10_days",
+        "add_30_days",
+        "add_5_days_all",
+        "add_10_days_all",
+        "add_30_days_all",
+        "add_custom_days_settings",
+        "add_custom_days_settings_all",
+    )
+    actions_on_top = True
+    actions_on_bottom = True
+    actions_selection_counter = True
+
+    @action(description="➕ Добавить 5 дней к балансу (выбранным)")
+    async def add_5_days(self, ids: list[UUID | int]) -> None:
+        """Add 5 days to selected users."""
+        await batch_balance_service.add_days_to_users(days=5, user_ids=ids)
+
+    @action(description="➕ Добавить 10 дней к балансу (выбранным)")
+    async def add_10_days(self, ids: list[UUID | int]) -> None:
+        """Add 10 days to selected users."""
+        await batch_balance_service.add_days_to_users(days=10, user_ids=ids)
+
+    @action(description="➕ Добавить 30 дней к балансу (выбранным)")
+    async def add_30_days(self, ids: list[UUID | int]) -> None:
+        """Add 30 days to selected users."""
+        await batch_balance_service.add_days_to_users(days=30, user_ids=ids)
+
+    @action(description="🌐 Добавить 5 дней к балансу (всем пользователям)")
+    async def add_5_days_all(self, ids: list[UUID | int]) -> None:
+        """Add 5 days to all users in database."""
+        await batch_balance_service.add_days_to_users(days=5, user_ids=None)
+
+    @action(description="🌐 Добавить 10 дней к балансу (всем пользователям)")
+    async def add_10_days_all(self, ids: list[UUID | int]) -> None:
+        """Add 10 days to all users in database."""
+        await batch_balance_service.add_days_to_users(days=10, user_ids=None)
+
+    @action(description="🌐 Добавить 30 дней к балансу (всем пользователям)")
+    async def add_30_days_all(self, ids: list[UUID | int]) -> None:
+        """Add 30 days to all users in database."""
+        await batch_balance_service.add_days_to_users(days=30, user_ids=None)
+
+    @action(description="⚙️ Добавить дни из Runtime Settings (выбранным)")
+    async def add_custom_days_settings(self, ids: list[UUID | int]) -> None:
+        """Add custom days configured in RuntimeSetting to selected users."""
+        days = await batch_balance_service.get_custom_days_from_settings()
+        await batch_balance_service.add_days_to_users(days=days, user_ids=ids)
+
+    @action(description="⚙️ Добавить дни из Runtime Settings (всем пользователям)")
+    async def add_custom_days_settings_all(self, ids: list[UUID | int]) -> None:
+        """Add custom days configured in RuntimeSetting to all users."""
+        days = await batch_balance_service.get_custom_days_from_settings()
+        await batch_balance_service.add_days_to_users(days=days, user_ids=None)
 
 
 @register(Balance)
@@ -171,6 +229,73 @@ class BalanceModelAdmin(HeliosTortoiseModelAdmin):
         "user__username",
         "user__marzban_username",
     )
+    actions = (
+        "add_5_days",
+        "add_10_days",
+        "add_30_days",
+        "add_5_days_all",
+        "add_10_days_all",
+        "add_30_days_all",
+        "add_custom_days_settings",
+        "add_custom_days_settings_all",
+        "freeze_subscriptions",
+        "activate_subscriptions",
+    )
+    actions_on_top = True
+    actions_on_bottom = True
+    actions_selection_counter = True
+
+    @action(description="➕ Добавить 5 дней (выбранным балансам)")
+    async def add_5_days(self, ids: list[UUID | int]) -> None:
+        """Add 5 days to selected balances."""
+        await batch_balance_service.add_days_to_balances(days=5, balance_ids=ids)
+
+    @action(description="➕ Добавить 10 дней (выбранным балансам)")
+    async def add_10_days(self, ids: list[UUID | int]) -> None:
+        """Add 10 days to selected balances."""
+        await batch_balance_service.add_days_to_balances(days=10, balance_ids=ids)
+
+    @action(description="➕ Добавить 30 дней (выбранным балансам)")
+    async def add_30_days(self, ids: list[UUID | int]) -> None:
+        """Add 30 days to selected balances."""
+        await batch_balance_service.add_days_to_balances(days=30, balance_ids=ids)
+
+    @action(description="🌐 Добавить 5 дней (всем балансам)")
+    async def add_5_days_all(self, ids: list[UUID | int]) -> None:
+        """Add 5 days to all balances in database."""
+        await batch_balance_service.add_days_to_balances(days=5, balance_ids=None)
+
+    @action(description="🌐 Добавить 10 дней (всем балансам)")
+    async def add_10_days_all(self, ids: list[UUID | int]) -> None:
+        """Add 10 days to all balances in database."""
+        await batch_balance_service.add_days_to_balances(days=10, balance_ids=None)
+
+    @action(description="🌐 Добавить 30 дней (всем балансам)")
+    async def add_30_days_all(self, ids: list[UUID | int]) -> None:
+        """Add 30 days to all balances in database."""
+        await batch_balance_service.add_days_to_balances(days=30, balance_ids=None)
+
+    @action(description="⚙️ Добавить дни из Runtime Settings (выбранным балансам)")
+    async def add_custom_days_settings(self, ids: list[UUID | int]) -> None:
+        """Add custom days configured in RuntimeSetting to selected balances."""
+        days = await batch_balance_service.get_custom_days_from_settings()
+        await batch_balance_service.add_days_to_balances(days=days, balance_ids=ids)
+
+    @action(description="⚙️ Добавить дни из Runtime Settings (всем балансам)")
+    async def add_custom_days_settings_all(self, ids: list[UUID | int]) -> None:
+        """Add custom days configured in RuntimeSetting to all balances."""
+        days = await batch_balance_service.get_custom_days_from_settings()
+        await batch_balance_service.add_days_to_balances(days=days, balance_ids=None)
+
+    @action(description="❄️ Заморозить подписку (выбранным)")
+    async def freeze_subscriptions(self, ids: list[UUID | int]) -> None:
+        """Freeze selected subscriptions."""
+        await batch_balance_service.freeze_balances(balance_ids=ids)
+
+    @action(description="⚡ Активировать подписку (выбранным)")
+    async def activate_subscriptions(self, ids: list[UUID | int]) -> None:
+        """Activate selected subscriptions."""
+        await batch_balance_service.activate_balances(balance_ids=ids)
 
 
 @register(SubscriptionPlan)

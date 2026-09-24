@@ -14,6 +14,7 @@ class RuntimeSettingKey(enum.StrEnum):
     BASE_PLAN_DURATION_DAYS = "base_plan_duration_days"
     REGISTRATIONS_ENABLED = "registrations_enabled"
     PAYMENTS_ENABLED = "payments_enabled"
+    BATCH_BALANCE_DAYS = "batch_balance_days"
 
 
 RuntimeSettingValue = bool | int | str
@@ -39,6 +40,7 @@ class RuntimeSettingService:
             ),
             RuntimeSettingKey.REGISTRATIONS_ENABLED.value: True,
             RuntimeSettingKey.PAYMENTS_ENABLED.value: True,
+            RuntimeSettingKey.BATCH_BALANCE_DAYS.value: 5,
         }
 
     def allowed_keys(self) -> list[str]:
@@ -113,6 +115,16 @@ class RuntimeSettingService:
             raise ValueError(msg)
         return value
 
+    async def batch_balance_days(self) -> int:
+        """Return effective batch balance days increment."""
+        value = await self.get_effective(
+            RuntimeSettingKey.BATCH_BALANCE_DAYS.value,
+        )
+        if isinstance(value, bool) or not isinstance(value, int):
+            msg = "batch_balance_days must be an integer"
+            raise ValueError(msg)
+        return value
+
     def _validate(self, key: str, value: object) -> RuntimeSettingValue:
         """Validate and normalize one setting value by key."""
         if key in {
@@ -124,12 +136,15 @@ class RuntimeSettingService:
                 raise ValueError(msg)
             return value
 
-        if key == RuntimeSettingKey.BASE_PLAN_DURATION_DAYS.value:
+        if key in {
+            RuntimeSettingKey.BASE_PLAN_DURATION_DAYS.value,
+            RuntimeSettingKey.BATCH_BALANCE_DAYS.value,
+        }:
             if isinstance(value, bool) or not isinstance(value, int):
-                msg = "base_plan_duration_days must be an integer"
+                msg = f"{key} must be an integer"
                 raise ValueError(msg)
             if value < 1 or value > 3650:
-                msg = "base_plan_duration_days must be between 1 and 3650"
+                msg = f"{key} must be between 1 and 3650"
                 raise ValueError(msg)
             return value
 
